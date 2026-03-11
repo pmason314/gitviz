@@ -1,0 +1,127 @@
+{
+  "name": "gitlite",
+  "displayName": "GitLite",
+  "description": "Lightweight GitLens alternative — blame annotations, heatmap, history, and repository exploration without cloud sync or telemetry.",
+  "version": "0.1.0",
+  "publisher": "pmason314",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pmason314/gitlite"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["SCM Providers", "Other"],
+  "keywords": ["git", "blame", "gitlens", "history", "annotation"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gitlite.toggleBlame",
+        "title": "GitLite: Toggle Inline Blame"
+      },
+      {
+        "command": "gitlite.toggleHeatmap",
+        "title": "GitLite: Toggle Line Heatmap"
+      },
+      {
+        "command": "gitlite.copySha",
+        "title": "GitLite: Copy Commit SHA"
+      },
+      {
+        "command": "gitlite.openCommitDetails",
+        "title": "GitLite: Open Commit Details"
+      },
+      {
+        "command": "gitlite.diffWithPrevious",
+        "title": "GitLite: Diff with Previous Commit"
+      },
+      {
+        "command": "gitlite.revealCommit",
+        "title": "GitLite: Reveal Commit in Commits View"
+      }
+    ],
+    "configuration": {
+      "title": "GitLite",
+      "properties": {
+        "gitlite.blame.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable all inline blame annotations."
+        },
+        "gitlite.blame.format": {
+          "type": "string",
+          "default": "{author}, {date} · {message|60}",
+          "description": "Format string for inline blame. Tokens: {author}, {authorEmail}, {date}, {sha}, {message|N} (truncate to N chars)."
+        },
+        "gitlite.blame.dateFormat": {
+          "type": "string",
+          "enum": ["relative", "absolute", "iso"],
+          "default": "relative",
+          "description": "Date format for blame annotations."
+        },
+        "gitlite.blame.highlightLine": {
+          "type": "boolean",
+          "default": false,
+          "description": "Highlight the current line's age in the gutter."
+        },
+        "gitlite.blame.maxLines": {
+          "type": "number",
+          "default": 10000,
+          "description": "Skip blame for files larger than this many lines."
+        },
+        "gitlite.blame.maxFileSizeKb": {
+          "type": "number",
+          "default": 1024,
+          "description": "Skip blame for files larger than this size in kilobytes."
+        },
+        "gitlite.heatmap.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable line heatmap showing age of each line."
+        },
+        "gitlite.heatmap.hotColor": {
+          "type": "string",
+          "default": "#ff6600",
+          "description": "Hex color for the most recently changed lines."
+        },
+        "gitlite.heatmap.coldColor": {
+          "type": "string",
+          "default": "#0066ff",
+          "description": "Hex color for the oldest lines."
+        },
+        "gitlite.heatmap.ageThresholdDays": {
+          "type": "number",
+          "default": 365,
+          "description": "Number of days before a line reaches the coldest heatmap color."
+        },
+        "gitlite.views.defaultLocation": {
+          "type": "string",
+          "enum": ["gitlite", "scm"],
+          "default": "gitlite",
+          "description": "Where to show GitLite views: in its own activity bar panel or in the Source Control panel."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "vsce package",
+    "test": "node ./out/test/runTest.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "@vscode/test-electron": "^2.4.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  }
+}
