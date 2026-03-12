@@ -169,13 +169,23 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // ---------------------------------------------------------------------
 
         vscode.commands.registerCommand('gitlite.openLineHistory', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                vscode.window.showWarningMessage('GitLite: No active editor.');
-                return;
-            }
-            await lineHistoryProvider.loadForSelection(editor);
             await vscode.commands.executeCommand('gitlite.lineHistory.focus');
+        }),
+
+        vscode.commands.registerCommand('gitlite.lineHistory.openDiff', async (sha: string) => {
+            const filePath = lineHistoryProvider.getCurrentFilePath();
+            if (!filePath) { return; }
+            const line = lineHistoryProvider.getCurrentLine(); // 1-based
+            const repoRoot = gitService.getRepoRoot();
+            const prevUri = makeRevisionUri(repoRoot, `${sha}~1`, filePath);
+            const currUri = makeRevisionUri(repoRoot, sha, filePath);
+            const title = `${path.basename(filePath)} (${sha.slice(0, 7)}^ \u2194 ${sha.slice(0, 7)})`;
+            // Reveal the tracked line (0-based) in the right side of the diff
+            const selection = line > 0
+                ? new vscode.Range(line - 1, 0, line - 1, 0)
+                : undefined;
+            await vscode.commands.executeCommand('vscode.diff', prevUri, currUri, title,
+                { viewColumn: vscode.ViewColumn.Active, selection });
         }),
 
         vscode.commands.registerCommand('gitlite.fileHistory.openAtRevision', async (entry: FileHistoryEntry) => {

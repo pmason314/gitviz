@@ -124,6 +124,10 @@
       {
         "command": "gitlite.hotFiles.openFileHistory",
         "title": "Open File History"
+      },
+      {
+        "command": "gitlite.lineHistory.openDiff",
+        "title": "Open Diff at This Commit"
       }
     ],
     "configuration": {
