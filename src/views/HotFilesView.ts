@@ -37,6 +37,7 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
 
     private userTimeframe: Timeframe = 30;
     private filter = '';
+    private hideDeleted = false;
     private cachedFiles: HotFileEntry[] = [];
 
     constructor(private readonly gitService: GitService) {}
@@ -86,13 +87,28 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
         } catch {
             this.cachedFiles = [];
         }
+        // Annotate each file with whether it currently exists on disk
+        const root = this.gitService.getRepoRoot();
+        await Promise.all(this.cachedFiles.map(async (f) => {
+            const absPath = path.join(root, f.path);
+            try {
+                await vscode.workspace.fs.stat(vscode.Uri.file(absPath));
+                (f as HotFileEntry & { exists?: boolean }).exists = true;
+            } catch {
+                (f as HotFileEntry & { exists?: boolean }).exists = false;
+            }
+        }));
         this._sendFiltered();
     }
 
     private _sendFiltered(): void {
-        const files = this.filter
+        let files = this.filter
             ? this.cachedFiles.filter(e => matchesFilter(e.path, this.filter))
             : this.cachedFiles;
+
+        if (this.hideDeleted) {
+            files = files.filter(f => (f as HotFileEntry & { exists?: boolean }).exists !== false);
+        }
 
         let emptyMessage: string | undefined;
         if (files.length === 0) {
@@ -103,6 +119,11 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
                     : 'No commits found';
         }
         this._view?.webview.postMessage({ type: 'update', files, emptyMessage });
+    }
+
+    setHideDeleted(val: boolean): void {
+        this.hideDeleted = val;
+        this._sendFiltered();
     }
 
     setTimeframe(t: Timeframe): void {
@@ -172,13 +193,14 @@ body {
   cursor: pointer; gap: 0;
 }
 .row:hover { background: var(--vscode-list-hoverBackground); }
-.name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
+.name { white-space: nowrap; flex-shrink: 0; }
 .meta {
   flex-shrink: 0;
   color: var(--vscode-descriptionForeground);
   font-size: 0.9em;
   margin-left: 6px;
   white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0;
 }
 .hist-btn {
   display: none; align-items: center; justify-content: center;
@@ -229,12 +251,15 @@ function render() {
     var slash = f.path.lastIndexOf('/');
     var name = slash >= 0 ? f.path.slice(slash + 1) : f.path;
     var dir  = slash >= 0 ? f.path.slice(0, slash) : '';
-    var meta = f.count + ' commits' + (dir ? ' \u00b7 ' + dir : '');
+    var parts = dir ? dir.split('/') : [];
+    var shortDir = parts.length > 2 ? parts[0] + '/\u2026/' + parts[parts.length - 1] : dir;
+    var commitWord = f.count === 1 ? ' commit' : ' commits';
+    var meta = f.count + commitWord + (shortDir ? ' \u00b7 ' + shortDir : '');
     var histSvg = '<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">'
       + '<path d="M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8z"/>'
       + '<path d="M7.5 4.5v3.72l2.64 2.64.72-.72-2.36-2.36V4.5z"/>'
       + '</svg>';
-    return '<div class="row" data-path="' + esc(f.path) + '">'
+    return '<div class="row" data-path="' + esc(f.path) + '"' + (f.exists === false ? ' style="opacity:0.5;text-decoration:line-through;"' : '') + '>'
       + '<span class="name ' + heat + '">' + esc(name) + '</span>'
       + '<span class="meta">' + esc(meta) + '</span>'
       + '<button class="hist-btn" data-path="' + esc(f.path) + '" title="Open File History">' + histSvg + '</button>'

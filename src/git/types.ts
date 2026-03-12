@@ -41,3 +41,65 @@ export interface HotFileEntry {
     count: number;
     topAuthor: string;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Sidebar Repository Views
+// ---------------------------------------------------------------------------
+
+export interface BranchInfo {
+    name: string;
+    sha: string;
+    subject: string;
+    isCurrent: boolean;
+    /** Upstream tracking branch short name, e.g. "origin/main", or "" if none. */
+    upstream: string;
+    /** True when upstream was set but git reports it as gone (pruned from remote). */
+    upstreamGone: boolean;
+    ahead: number;
+    behind: number;
+}
+
+export interface RemoteBranchInfo {
+    /** Full short name, e.g. "origin/main" */
+    fullName: string;
+    /** Branch name without remote prefix, e.g. "main" */
+    shortName: string;
+    sha: string;
+    subject: string;
+}
+
+export interface RemoteInfo {
+    name: string;
+    fetchUrl: string;
+    branches: RemoteBranchInfo[];
+}
+
+export interface TagInfo {
+    name: string;
+    /** The commit SHA this tag points to (dereferenced for annotated tags). */
+    sha: string;
+    date: string;
+    subject: string;
+    isAnnotated: boolean;
+}
+
+export interface StashInfo {
+    /** Stash ref, e.g. "stash@{0}" */
+    ref: string;
+    message: string;
+    relativeDate: string;
+}
+
+export interface ContributorInfo {
+    name: string;
+    email: string;
+    commitCount: number;
+}
+
+export interface CommitEntry {
+    sha: string;
+    author: string;
+    date: Date;
+    relativeDate: string;
+    message: string;
+}

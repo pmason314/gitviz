@@ -10,9 +10,14 @@ import { BlameHoverProvider } from './hovers/BlameHoverProvider';
 import { FileHistoryProvider } from './views/FileHistoryProvider';
 import { LineHistoryProvider } from './views/LineHistoryProvider';
 import { HotFilesView } from './views/HotFilesView';
+import { CommitsView } from './views/CommitsView';
+import { BranchesProvider } from './views/BranchesProvider';
+import { TagsProvider } from './views/TagsProvider';
+import { StashesProvider } from './views/StashesProvider';
+import { SearchCompareProvider } from './views/SearchCompareProvider';
 import { RevisionContentProvider, REVISION_SCHEME, makeRevisionUri } from './editors/RevisionContentProvider';
 import { CommitDetailsPanel } from './webviews/CommitDetailsPanel';
-import { FileHistoryEntry, HotFileEntry } from './git/types';
+import { FileHistoryEntry, HotFileEntry, StashInfo, BranchInfo, TagInfo } from './git/types';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const repoRoot = await detectRepoRoot();
@@ -67,6 +72,11 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const fileHistoryProvider = new FileHistoryProvider(gitService);
     const lineHistoryProvider = new LineHistoryProvider(gitService);
     const hotFilesView = new HotFilesView(gitService);
+    const commitsView = new CommitsView(gitService);
+    const branchesProvider = new BranchesProvider(gitService);
+    const tagsProvider = new TagsProvider(gitService);
+    const stashesProvider = new StashesProvider(gitService);
+    const searchCompareProvider = new SearchCompareProvider(gitService);
     const revisionProvider = new RevisionContentProvider(gitService);
     const commitDetailsPanel = new CommitDetailsPanel(gitService);
 
@@ -80,6 +90,11 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         fileHistoryProvider,
         lineHistoryProvider,
         hotFilesView,
+        commitsView,
+        branchesProvider,
+        tagsProvider,
+        stashesProvider,
+        searchCompareProvider,
         revisionProvider,
         commitDetailsPanel,
         vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider),
@@ -87,7 +102,74 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         vscode.window.registerTreeDataProvider('gitlite.lineHistory', lineHistoryProvider),
         vscode.workspace.registerTextDocumentContentProvider(REVISION_SCHEME, revisionProvider),
         vscode.window.registerWebviewViewProvider(HotFilesView.viewType, hotFilesView),
+        vscode.window.registerWebviewViewProvider(CommitsView.viewType, commitsView),
+        vscode.window.createTreeView('gitlite.branches',     { treeDataProvider: branchesProvider,     showCollapseAll: false }),
+        vscode.window.createTreeView('gitlite.tags',         { treeDataProvider: tagsProvider,         showCollapseAll: false }),
+        vscode.window.createTreeView('gitlite.stashes',      { treeDataProvider: stashesProvider,      showCollapseAll: false }),
     );
+
+    // Wire SearchCompare view reference (needed for description updates)
+    const searchCompareView = vscode.window.createTreeView('gitlite.searchCompare', {
+        treeDataProvider: searchCompareProvider,
+    });
+    searchCompareProvider.setView(searchCompareView);
+    context.subscriptions.push(searchCompareView);
+
+    // Eagerly load Phase 3 views
+    void branchesProvider.refresh();
+    void tagsProvider.refresh();
+    void stashesProvider.refresh();
+
+    // -------------------------------------------------------------------------
+    // Watch .git directory for local state changes and auto-refresh views
+    // -------------------------------------------------------------------------
+    {
+        const gitDir = vscode.Uri.file(gitService.getRepoRoot() + '/.git');
+
+        // Debounce helpers — coalesces rapid multi-file changes (e.g. during checkout)
+        let branchTimer: ReturnType<typeof setTimeout> | undefined;
+        let tagTimer:    ReturnType<typeof setTimeout> | undefined;
+        let stashTimer:  ReturnType<typeof setTimeout> | undefined;
+        const debounceBranches = () => { clearTimeout(branchTimer); branchTimer = setTimeout(() => void branchesProvider.refresh(), 300); };
+        const debounceTags     = () => { clearTimeout(tagTimer);    tagTimer    = setTimeout(() => void tagsProvider.refresh(),    300); };
+        const debounceStashes  = () => { clearTimeout(stashTimer);  stashTimer  = setTimeout(() => void stashesProvider.refresh(), 300); };
+
+        // HEAD changes on checkout
+        const watchHead = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(gitDir, 'HEAD'));
+        // branch refs
+        const watchRefs = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(gitDir, 'refs/heads/**'));
+        // packed-refs covers both branches and tags after fetch/gc
+        const watchPacked = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(gitDir, 'packed-refs'));
+        // tag refs
+        const watchTags = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(gitDir, 'refs/tags/**'));
+        // stash
+        const watchStash = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(gitDir, 'refs/stash'));
+
+        for (const w of [watchHead, watchRefs]) {
+            w.onDidCreate(debounceBranches);
+            w.onDidChange(debounceBranches);
+            w.onDidDelete(debounceBranches);
+        }
+        watchPacked.onDidCreate(() => { debounceBranches(); debounceTags(); });
+        watchPacked.onDidChange(() => { debounceBranches(); debounceTags(); });
+        for (const w of [watchTags]) {
+            w.onDidCreate(debounceTags);
+            w.onDidChange(debounceTags);
+            w.onDidDelete(debounceTags);
+        }
+        for (const w of [watchStash]) {
+            w.onDidCreate(debounceStashes);
+            w.onDidChange(debounceStashes);
+            w.onDidDelete(debounceStashes);
+        }
+
+        context.subscriptions.push(watchHead, watchRefs, watchPacked, watchTags, watchStash);
+    }
 
     // -------------------------------------------------------------------------
     // Subscribe to save events — invalidate cache and refresh all annotations
@@ -218,11 +300,175 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         vscode.commands.registerCommand('gitlite.hotFiles.set30',  () => { hotFilesView.setTimeframe(30);   }),
         vscode.commands.registerCommand('gitlite.hotFiles.set90',  () => { hotFilesView.setTimeframe(90);   }),
         vscode.commands.registerCommand('gitlite.hotFiles.setAll', () => { hotFilesView.setTimeframe(null); }),
+        vscode.commands.registerCommand('gitlite.hotFiles.hideDeleted', () => {
+            hotFilesView.setHideDeleted(true);
+            void vscode.commands.executeCommand('setContext', 'gitlite.hotFiles.hideDeleted', true);
+        }),
+        vscode.commands.registerCommand('gitlite.hotFiles.showDeleted', () => {
+            hotFilesView.setHideDeleted(false);
+            void vscode.commands.executeCommand('setContext', 'gitlite.hotFiles.hideDeleted', false);
+        }),
 
         vscode.commands.registerCommand('gitlite.hotFiles.openFileHistory', async (entry: HotFileEntry) => {
             const absPath = path.join(gitService.getRepoRoot(), entry.path);
             fileHistoryProvider.loadForFile(absPath);
             await vscode.commands.executeCommand('gitlite.fileHistory.focus');
+        }),
+
+        // ---------------------------------------------------------------------
+        // Phase 3 — Commits view
+        // ---------------------------------------------------------------------
+
+        // ---------------------------------------------------------------------
+        // Phase 3 — Branches view
+        // ---------------------------------------------------------------------
+
+        vscode.commands.registerCommand('gitlite.branches.filterUntracked', () => {
+            branchesProvider.setShowUntracked(true);
+            void vscode.commands.executeCommand('setContext', 'gitlite.branches.showUntracked', true);
+        }),
+
+        vscode.commands.registerCommand('gitlite.branches.showAllBranches', () => {
+            branchesProvider.setShowUntracked(false);
+            void vscode.commands.executeCommand('setContext', 'gitlite.branches.showUntracked', false);
+        }),
+
+        vscode.commands.registerCommand('gitlite.branches.cleanupUntracked', async () => {
+            const allBranches = await gitService.getBranches();
+            const candidates = allBranches.filter(b => !b.isCurrent && (!b.upstream || b.upstreamGone));
+            if (!candidates.length) {
+                vscode.window.showInformationMessage('No local branches without an upstream to clean up.');
+                return;
+            }
+            const items = candidates.map(b => ({
+                label: b.name,
+                description: b.upstreamGone ? '(upstream gone — likely merged)' : '(no upstream)',
+                picked: true,
+                branch: b,
+            }));
+            const selected = await vscode.window.showQuickPick(items, {
+                canPickMany: true,
+                title: 'Delete Branches Without Upstream',
+                placeHolder: 'Select branches to delete (all pre-selected)',
+            });
+            if (!selected?.length) { return; }
+            let failed = 0;
+            for (const item of selected) {
+                try {
+                    await gitService.deleteBranch(item.branch.name);
+                } catch {
+                    try {
+                        await gitService.deleteBranch(item.branch.name, true);
+                    } catch (err) {
+                        failed++;
+                        vscode.window.showErrorMessage(`GitLite: Failed to delete “${item.branch.name}”: ${(err as Error).message}`);
+                    }
+                }
+            }
+            void branchesProvider.refresh();
+            if (!failed) {
+                const n = selected.length;
+                vscode.window.showInformationMessage(`Deleted ${n} branch${n !== 1 ? 'es' : ''}.`);
+            }
+        }),
+
+        vscode.commands.registerCommand('gitlite.branch.checkout', async (node: { branch?: BranchInfo }) => {
+            const name = node?.branch?.name ?? await vscode.window.showInputBox({
+                title: 'Switch to Branch',
+                placeHolder: 'Branch name',
+            });
+            if (!name) { return; }
+            try {
+                await gitService.checkoutBranch(name);
+                void branchesProvider.refresh();
+                void commitsView.refresh();
+                vscode.window.showInformationMessage(`GitLite: Switched to branch "${name}".`);
+            } catch (err) {
+                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+            }
+        }),
+
+        vscode.commands.registerCommand('gitlite.branch.create', () => {
+            void vscode.commands.executeCommand('git.branch');
+        }),
+
+        vscode.commands.registerCommand('gitlite.branch.delete', () => {
+            void vscode.commands.executeCommand('git.deleteBranch');
+        }),
+
+        vscode.commands.registerCommand('gitlite.branch.rename', () => {
+            void vscode.commands.executeCommand('git.renameBranch');
+        }),
+
+        // ---------------------------------------------------------------------
+        // Phase 3 — Tags view
+        // ---------------------------------------------------------------------
+
+        vscode.commands.registerCommand('gitlite.tag.create', () => {
+            void vscode.commands.executeCommand('git.createTag');
+        }),
+
+        vscode.commands.registerCommand('gitlite.tag.delete', () => {
+            void vscode.commands.executeCommand('git.deleteTag');
+        }),
+
+        // ---------------------------------------------------------------------
+        // Phase 3 — Stashes view
+        // ---------------------------------------------------------------------
+
+        vscode.commands.registerCommand('gitlite.stash.create', () => {
+            void vscode.commands.executeCommand('git.stash');
+        }),
+
+        vscode.commands.registerCommand('gitlite.stash.dropAll', async () => {
+            const stashes = await gitService.getStashes();
+            if (!stashes.length) {
+                vscode.window.showInformationMessage('No stashes to drop.');
+                return;
+            }
+            const answer = await vscode.window.showWarningMessage(
+                `Drop all ${stashes.length} stash${stashes.length === 1 ? '' : 'es'}? This cannot be undone.`,
+                { modal: true }, 'Drop All'
+            );
+            if (answer !== 'Drop All') { return; }
+            await gitService.dropAllStashes().catch((err: Error) => {
+                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+            });
+        }),
+
+        vscode.commands.registerCommand('gitlite.stash.openDetails', async (node: StashInfo) => {
+            if (!node?.ref) { return; }
+            await commitDetailsPanel.show(node.ref).catch((err: Error) => {
+                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+            });
+        }),
+
+        vscode.commands.registerCommand('gitlite.stash.applyEntry', () => {
+            void vscode.commands.executeCommand('git.stashApply');
+        }),
+
+        vscode.commands.registerCommand('gitlite.stash.popEntry', () => {
+            void vscode.commands.executeCommand('git.stashPop');
+        }),
+
+        vscode.commands.registerCommand('gitlite.stash.dropEntry', () => {
+            void vscode.commands.executeCommand('git.stashDrop');
+        }),
+
+        // ---------------------------------------------------------------------
+        // Phase 3 — Search & Compare view
+        // ---------------------------------------------------------------------
+
+        vscode.commands.registerCommand('gitlite.searchCompare.search', () => {
+            void searchCompareProvider.promptSearch();
+        }),
+
+        vscode.commands.registerCommand('gitlite.searchCompare.compare', () => {
+            void searchCompareProvider.promptCompare();
+        }),
+
+        vscode.commands.registerCommand('gitlite.searchCompare.clear', () => {
+            searchCompareProvider.clearResults();
         }),
     );
 }

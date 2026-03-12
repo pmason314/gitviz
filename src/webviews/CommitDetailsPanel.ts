@@ -17,10 +17,11 @@ export class CommitDetailsPanel implements vscode.Disposable {
     constructor(private readonly gitService: GitService) {}
 
     async show(sha: string, highlightAbsPath?: string): Promise<void> {
+        const isStash = /^stash@\{/.test(sha);
         if (!this.panel) {
             this.panel = vscode.window.createWebviewPanel(
                 CommitDetailsPanel.VIEW_TYPE,
-                `Commit ${sha.slice(0, 7)}`,
+                isStash ? 'Stash' : `Commit ${sha.slice(0, 7)}`,
                 vscode.ViewColumn.Active,
                 { enableScripts: true, retainContextWhenHidden: true }
             );
@@ -34,15 +35,19 @@ export class CommitDetailsPanel implements vscode.Disposable {
                 this.disposables
             );
         } else {
-            this.panel.title = `Commit ${sha.slice(0, 7)}`;
+            this.panel.title = isStash ? 'Stash' : `Commit ${sha.slice(0, 7)}`;
             this.panel.reveal(vscode.ViewColumn.Active);
         }
 
         // Fetch metadata and file list concurrently
         const [commit, files] = await Promise.all([
             this.gitService.getCommit(sha),
-            this.gitService.getCommitFiles(sha),
+            isStash ? this.gitService.getStashFiles(sha) : this.gitService.getCommitFiles(sha),
         ]);
+
+        if (isStash) {
+            this.panel.title = `Stash: ${commit.message.slice(0, 50)}`;
+        }
 
         // Convert abs path to repo-relative for highlighting
         const repoRoot = this.gitService.getRepoRoot();

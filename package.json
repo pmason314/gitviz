@@ -28,9 +28,14 @@
     },
     "views": {
       "gitlite": [
-        { "id": "gitlite.fileHistory", "name": "File History" },
-        { "id": "gitlite.lineHistory", "name": "Line History" },
-        { "id": "gitlite.hotFiles",    "name": "Hot Files", "type": "webview" }
+        { "id": "gitlite.fileHistory",    "name": "File History" },
+        { "id": "gitlite.lineHistory",    "name": "Line History" },
+        { "id": "gitlite.hotFiles",       "name": "Hot Files", "type": "webview" },
+        { "id": "gitlite.commits",        "name": "Commits", "type": "webview" },
+        { "id": "gitlite.branches",       "name": "Branches" },
+        { "id": "gitlite.stashes",        "name": "Stashes" },
+        { "id": "gitlite.tags",           "name": "Tags" },
+        { "id": "gitlite.searchCompare",  "name": "Search & Compare" }
       ]
     },
     "menus": {
@@ -59,6 +64,61 @@
           "command": "gitlite.hotFiles.setAll",
           "when": "view == gitlite.hotFiles",
           "group": "navigation@4"
+        },
+        {
+          "command": "gitlite.hotFiles.hideDeleted",
+          "when": "view == gitlite.hotFiles && !gitlite.hotFiles.hideDeleted",
+          "group": "navigation@5"
+        },
+        {
+          "command": "gitlite.hotFiles.showDeleted",
+          "when": "view == gitlite.hotFiles && gitlite.hotFiles.hideDeleted",
+          "group": "navigation@5"
+        },
+        {
+          "command": "gitlite.branch.create",
+          "when": "view == gitlite.branches",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitlite.branches.filterUntracked",
+          "when": "view == gitlite.branches && !gitlite.branches.showUntracked",
+          "group": "navigation@3"
+        },
+        {
+          "command": "gitlite.branches.showAllBranches",
+          "when": "view == gitlite.branches && gitlite.branches.showUntracked",
+          "group": "navigation@3"
+        },
+        {
+          "command": "gitlite.tag.create",
+          "when": "view == gitlite.tags",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitlite.stash.create",
+          "when": "view == gitlite.stashes",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitlite.stash.dropAll",
+          "when": "view == gitlite.stashes",
+          "group": "navigation@2"
+        },
+        {
+          "command": "gitlite.searchCompare.search",
+          "when": "view == gitlite.searchCompare",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitlite.searchCompare.compare",
+          "when": "view == gitlite.searchCompare",
+          "group": "navigation@2"
+        },
+        {
+          "command": "gitlite.searchCompare.clear",
+          "when": "view == gitlite.searchCompare",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -86,6 +146,71 @@
           "command": "gitlite.hotFiles.openFileHistory",
           "when": "viewItem == hotFile && view == gitlite.hotFiles",
           "group": "1_open@1"
+        },
+        {
+          "command": "gitlite.copySha",
+          "when": "viewItem == commit && (view == gitlite.commits || view == gitlite.searchCompare)",
+          "group": "1_open@1"
+        },
+        {
+          "command": "gitlite.branch.checkout",
+          "when": "viewItem == localBranch && view == gitlite.branches",
+          "group": "1_branch@1"
+        },
+        {
+          "command": "gitlite.branch.rename",
+          "when": "(viewItem == localBranch || viewItem == currentBranch) && view == gitlite.branches",
+          "group": "1_branch@2"
+        },
+        {
+          "command": "gitlite.branches.cleanupUntracked",
+          "when": "viewItem == branchSectionLocal && view == gitlite.branches",
+          "group": "inline"
+        },
+        {
+          "command": "gitlite.branch.delete",
+          "when": "viewItem == localBranch && view == gitlite.branches",
+          "group": "2_destructive@1"
+        },
+        {
+          "command": "gitlite.tag.delete",
+          "when": "viewItem == tag && view == gitlite.tags",
+          "group": "1_tag@1"
+        },
+        {
+          "command": "gitlite.openCommitDetails",
+          "when": "viewItem == tag && view == gitlite.tags",
+          "group": "2_open@1"
+        },
+        {
+          "command": "gitlite.stash.applyEntry",
+          "when": "viewItem == stash && view == gitlite.stashes",
+          "group": "inline@1"
+        },
+        {
+          "command": "gitlite.stash.popEntry",
+          "when": "viewItem == stash && view == gitlite.stashes",
+          "group": "inline@2"
+        },
+        {
+          "command": "gitlite.stash.dropEntry",
+          "when": "viewItem == stash && view == gitlite.stashes",
+          "group": "inline@3"
+        },
+        {
+          "command": "gitlite.stash.applyEntry",
+          "when": "viewItem == stash && view == gitlite.stashes",
+          "group": "1_stash@1"
+        },
+        {
+          "command": "gitlite.stash.popEntry",
+          "when": "viewItem == stash && view == gitlite.stashes",
+          "group": "1_stash@2"
+        },
+        {
+          "command": "gitlite.stash.dropEntry",
+          "when": "viewItem == stash && view == gitlite.stashes",
+          "group": "2_destructive@1"
         }
       ]
     },
@@ -133,23 +258,33 @@
       },
       {
         "command": "gitlite.hotFiles.set7",
-        "title": "GitLite: Hot Files — Last 7 Days",
+        "title": "Last 7 Days",
         "icon": { "dark": "icons/tf-7d-dark.svg", "light": "icons/tf-7d-light.svg" }
       },
       {
         "command": "gitlite.hotFiles.set30",
-        "title": "GitLite: Hot Files — Last 30 Days",
+        "title": "Last 30 Days",
         "icon": { "dark": "icons/tf-30d-dark.svg", "light": "icons/tf-30d-light.svg" }
       },
       {
         "command": "gitlite.hotFiles.set90",
-        "title": "GitLite: Hot Files — Last 90 Days",
+        "title": "Last 90 Days",
         "icon": { "dark": "icons/tf-90d-dark.svg", "light": "icons/tf-90d-light.svg" }
       },
       {
         "command": "gitlite.hotFiles.setAll",
-        "title": "GitLite: Hot Files — All Time",
+        "title": "All Time",
         "icon": { "dark": "icons/tf-all-dark.svg", "light": "icons/tf-all-light.svg" }
+      },
+      {
+        "command": "gitlite.hotFiles.hideDeleted",
+        "title": "Hide Files Deleted from Repo",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "gitlite.hotFiles.showDeleted",
+        "title": "Show Files Deleted from Repo",
+        "icon": "$(eye)"
       },
       {
         "command": "gitlite.hotFiles.openFileHistory",
@@ -158,6 +293,92 @@
       {
         "command": "gitlite.lineHistory.openDiff",
         "title": "Open Diff at This Commit"
+      },
+      {
+        "command": "gitlite.branch.checkout",
+        "title": "Switch to Branch"
+      },
+      {
+        "command": "gitlite.branch.create",
+        "title": "Create Branch",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitlite.branch.delete",
+        "title": "Delete Branch",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "gitlite.branch.rename",
+        "title": "Rename Branch"
+      },
+      {
+        "command": "gitlite.branches.filterUntracked",
+        "title": "Show Branches Without Upstream",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "gitlite.branches.showAllBranches",
+        "title": "Show All Branches",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "gitlite.branches.cleanupUntracked",
+        "title": "Delete Branches Without Upstream",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "gitlite.tag.create",
+        "title": "GitLite: Create Tag",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitlite.tag.delete",
+        "title": "Delete Tag"
+      },
+      {
+        "command": "gitlite.stash.create",
+        "title": "Create Stash",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitlite.stash.dropAll",
+        "title": "Drop All Stashes",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "gitlite.stash.openDetails",
+        "title": "Open Stash Details"
+      },
+      {
+        "command": "gitlite.stash.applyEntry",
+        "title": "Apply Stash",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "gitlite.stash.popEntry",
+        "title": "Pop Stash",
+        "icon": "$(arrow-circle-down)"
+      },
+      {
+        "command": "gitlite.stash.dropEntry",
+        "title": "Drop Stash",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "gitlite.searchCompare.search",
+        "title": "GitLite: Search Commits",
+        "icon": "$(search)"
+      },
+      {
+        "command": "gitlite.searchCompare.compare",
+        "title": "GitLite: Compare Refs",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "gitlite.searchCompare.clear",
+        "title": "GitLite: Clear Results",
+        "icon": "$(close)"
       }
     ],
     "colors": [

@@ -2,7 +2,10 @@ import * as path from 'path';
 import simpleGit, { SimpleGit } from 'simple-git';
 import { BlameCache } from './BlameCache';
 import { CommitCache } from './CommitCache';
-import { BlameInfo, CommitInfo, FileHistoryEntry, CommitFileEntry, HotFileEntry } from './types';
+import {
+    BlameInfo, CommitInfo, FileHistoryEntry, CommitFileEntry, HotFileEntry,
+    BranchInfo, RemoteInfo, RemoteBranchInfo, TagInfo, StashInfo, ContributorInfo, CommitEntry,
+} from './types';
 
 const MAX_CONCURRENCY = 3;
 
@@ -273,6 +276,370 @@ export class GitService {
      */
     async getHotFiles(since: Date | null): Promise<HotFileEntry[]> {
         return this.run(() => this.fetchHotFiles(since));
+    }
+
+    // =========================================================================
+    // Phase 3 — Sidebar Repository Views (public API)
+    // =========================================================================
+
+    /** Return local branches with tracking / ahead-behind info. */
+    async getBranches(): Promise<BranchInfo[]> {
+        return this.run(() => this.fetchBranches());
+    }
+
+    /** Return all configured remotes with their remote-tracking branches. */
+    async getRemotes(): Promise<RemoteInfo[]> {
+        return this.run(() => this.fetchRemotes());
+    }
+
+    /** Return all tags sorted by date descending. */
+    async getTags(): Promise<TagInfo[]> {
+        return this.run(() => this.fetchTags());
+    }
+
+    /** Return all stashes. */
+    async getStashes(): Promise<StashInfo[]> {
+        return this.run(() => this.fetchStashes());
+    }
+
+    /** Return all contributors sorted by commit count descending. */
+    async getContributors(): Promise<ContributorInfo[]> {
+        return this.run(() => this.fetchContributors());
+    }
+
+    /**
+     * Return commits on the current branch.
+     * @param author Optional author filter (matched against name/email).
+     * @param limit Maximum number of commits (default 100).
+     */
+    async getCommitsOnBranch(author?: string, limit = 100): Promise<CommitEntry[]> {
+        return this.run(() => this.fetchCommitsOnBranch(author, limit));
+    }
+
+    /**
+     * Search commits across all branches.
+     * @param query The search term.
+     * @param type  What to search in: 'message', 'author', or 'content' (pickaxe).
+     */
+    async searchCommits(query: string, type: 'message' | 'author' | 'content'): Promise<CommitEntry[]> {
+        return this.run(() => this.fetchSearchCommits(query, type));
+    }
+
+    /** Return commits reachable from `to` but not from `from` (i.e. git log from..to). */
+    async getCommitsBetween(from: string, to: string): Promise<CommitEntry[]> {
+        return this.run(() => this.fetchCommitsBetween(from, to));
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 3 — mutating git operations
+    // -------------------------------------------------------------------------
+
+    async checkoutBranch(name: string): Promise<void> {
+        await this.run(() => this.git.checkout(name));
+    }
+
+    async createBranch(name: string, from?: string): Promise<void> {
+        if (from) {
+            await this.run(() => this.git.checkoutBranch(name, from));
+        } else {
+            await this.run(() => this.git.checkoutLocalBranch(name));
+        }
+    }
+
+    async deleteBranch(name: string, force = false): Promise<void> {
+        await this.run(() => this.git.branch([force ? '-D' : '-d', name]));
+    }
+
+    async renameBranch(oldName: string, newName: string): Promise<void> {
+        await this.run(() => this.git.branch(['-m', oldName, newName]));
+    }
+
+    async fetchRemote(name: string): Promise<void> {
+        await this.run(() => this.git.fetch(name));
+    }
+
+    async fetchAllRemotes(): Promise<void> {
+        await this.run(() => this.git.fetch(['--all']));
+    }
+
+    async fetchAllWithPrune(): Promise<void> {
+        await this.run(() => this.git.fetch(['--all', '--prune']));
+    }
+
+    async createTag(name: string, sha?: string, message?: string): Promise<void> {
+        const args: string[] = message ? ['-a', name, '-m', message] : [name];
+        if (sha) { args.push(sha); }
+        await this.run(() => this.git.tag(args));
+    }
+
+    async deleteTag(name: string): Promise<void> {
+        await this.run(() => this.git.tag(['-d', name]));
+    }
+
+    async applyStash(ref: string): Promise<void> {
+        await this.run(() => this.git.stash(['apply', ref]));
+    }
+
+    async popStash(ref: string): Promise<void> {
+        await this.run(() => this.git.stash(['pop', ref]));
+    }
+
+    async dropStash(ref: string): Promise<void> {
+        await this.run(() => this.git.stash(['drop', ref]));
+    }
+
+    /** Drop all stashes. */
+    async dropAllStashes(): Promise<void> {
+        await this.run(() => this.git.stash(['clear']));
+    }
+
+    /** Return files changed in a stash (vs the parent commit at stash time). */
+    async getStashFiles(ref: string): Promise<CommitFileEntry[]> {
+        return this.run(() => this.fetchStashFiles(ref));
+    }
+
+    // =========================================================================
+    // Phase 3 — private fetch helpers
+    // =========================================================================
+
+    private async fetchBranches(): Promise<BranchInfo[]> {
+        const SEP = '\x1f';
+        const output = await this.git.raw([
+            'for-each-ref',
+            `--format=%(HEAD)${SEP}%(refname:short)${SEP}%(objectname:short)${SEP}%(upstream:short)${SEP}%(upstream:track)${SEP}%(subject)`,
+            'refs/heads',
+        ]);
+        if (!output.trim()) { return []; }
+        return output.trim().split('\n').map((line) => {
+            const [head, name, sha, upstream, track, ...subjectParts] = line.split(SEP);
+            const subject = subjectParts.join(SEP).trim();
+            let ahead = 0;
+            let behind = 0;
+            if (track) {
+                const aMatch = track.match(/ahead (\d+)/);
+                const bMatch = track.match(/behind (\d+)/);
+                if (aMatch) { ahead = parseInt(aMatch[1], 10); }
+                if (bMatch) { behind = parseInt(bMatch[1], 10); }
+            }
+            return {
+                name: name.trim(),
+                sha: sha.trim(),
+                subject: subject,
+                isCurrent: head.trim() === '*',
+                upstream: upstream.trim(),
+                upstreamGone: track.includes('[gone]'),
+                ahead,
+                behind,
+            };
+        });
+    }
+
+    private async fetchRemotes(): Promise<RemoteInfo[]> {
+        let remotesOutput: string;
+        try {
+            remotesOutput = await this.git.raw(['remote', '-v']);
+        } catch {
+            return [];
+        }
+        if (!remotesOutput.trim()) { return []; }
+
+        const remoteMap = new Map<string, string>();
+        for (const line of remotesOutput.trim().split('\n')) {
+            const tab = line.indexOf('\t');
+            if (tab === -1) { continue; }
+            const name = line.slice(0, tab).trim();
+            const rest = line.slice(tab + 1).trim();
+            if (rest.endsWith('(fetch)') && !remoteMap.has(name)) {
+                remoteMap.set(name, rest.replace(/\s*\(fetch\)$/, '').trim());
+            }
+        }
+
+        if (remoteMap.size === 0) { return []; }
+
+        const SEP = '\x1f';
+        let branchOutput: string;
+        try {
+            branchOutput = await this.git.raw([
+                'for-each-ref',
+                `--format=%(refname:short)${SEP}%(objectname:short)${SEP}%(subject)`,
+                'refs/remotes',
+            ]);
+        } catch {
+            branchOutput = '';
+        }
+
+        const branchMap = new Map<string, RemoteBranchInfo[]>();
+        for (const [name] of remoteMap) { branchMap.set(name, []); }
+
+        if (branchOutput.trim()) {
+            for (const line of branchOutput.trim().split('\n')) {
+                const [fullName, sha, ...subjectParts] = line.split(SEP);
+                const subject = subjectParts.join(SEP).trim();
+                const fn = fullName.trim();
+                if (fn.endsWith('/HEAD')) { continue; }
+                const slashIdx = fn.indexOf('/');
+                if (slashIdx === -1) { continue; }
+                const remoteName = fn.slice(0, slashIdx);
+                const shortName = fn.slice(slashIdx + 1);
+                const list = branchMap.get(remoteName);
+                if (list) {
+                    list.push({ fullName: fn, shortName, sha: sha.trim(), subject });
+                }
+            }
+        }
+
+        return Array.from(remoteMap.entries()).map(([name, fetchUrl]) => ({
+            name,
+            fetchUrl,
+            branches: branchMap.get(name) ?? [],
+        }));
+    }
+
+    private async fetchTags(): Promise<TagInfo[]> {
+        const SEP = '\x1f';
+        const output = await this.git.raw([
+            'for-each-ref',
+            '--sort=-creatordate',
+            `--format=%(refname:short)${SEP}%(*objectname:short)${SEP}%(objectname:short)${SEP}%(creatordate:short)${SEP}%(subject)`,
+            'refs/tags',
+        ]);
+        if (!output.trim()) { return []; }
+        return output.trim().split('\n').map((line) => {
+            const [name, derefSha, ownSha, date, ...subjectParts] = line.split(SEP);
+            const subject = subjectParts.join(SEP).trim();
+            const isAnnotated = derefSha.trim() !== '';
+            return {
+                name: name.trim(),
+                sha: (derefSha.trim() || ownSha.trim()),
+                date: date.trim(),
+                subject,
+                isAnnotated,
+            };
+        });
+    }
+
+    private async fetchStashes(): Promise<StashInfo[]> {
+        const SEP = '\x1f';
+        let output: string;
+        try {
+            output = await this.git.raw(['stash', 'list', `--format=%gd${SEP}%s${SEP}%cr`]);
+        } catch {
+            return [];
+        }
+        if (!output.trim()) { return []; }
+        return output.trim().split('\n').map((line) => {
+            const [ref, message, relativeDate] = line.split(SEP);
+            return {
+                ref: ref.trim(),
+                message: message.trim(),
+                relativeDate: relativeDate.trim(),
+            };
+        });
+    }
+
+    private async fetchStashFiles(ref: string): Promise<CommitFileEntry[]> {
+        let output: string;
+        try {
+            output = await this.git.raw(['stash', 'show', '--numstat', ref]);
+        } catch {
+            return [];
+        }
+        if (!output.trim()) { return []; }
+        return output.trim().split('\n').flatMap((line) => {
+            const parts = line.match(/^(\d+|-)\s+(\d+|-)\s+(.+)$/);
+            if (!parts) { return []; }
+            const [, ins, del, filePath] = parts;
+            return [{
+                path: filePath.trim(),
+                insertions: ins === '-' ? -1 : parseInt(ins, 10),
+                deletions: del === '-' ? -1 : parseInt(del, 10),
+            }];
+        });
+    }
+
+    private async fetchContributors(): Promise<ContributorInfo[]> {
+        let output: string;
+        try {
+            output = await this.git.raw(['shortlog', '-sne', '--all']);
+        } catch {
+            return [];
+        }
+        if (!output.trim()) { return []; }
+        return output.trim().split('\n')
+            .map((line) => {
+                const tab = line.indexOf('\t');
+                if (tab === -1) { return null; }
+                const count = parseInt(line.slice(0, tab).trim(), 10);
+                const rest = line.slice(tab + 1).trim();
+                const emailMatch = rest.match(/^(.*?)\s*<([^>]*)>/);
+                const name = emailMatch ? emailMatch[1].trim() : rest;
+                const email = emailMatch ? emailMatch[2].trim() : '';
+                return { name, email, commitCount: isNaN(count) ? 0 : count };
+            })
+            .filter((c): c is ContributorInfo => c !== null);
+    }
+
+    private async fetchCommitsOnBranch(author?: string, limit = 100): Promise<CommitEntry[]> {
+        const SEP = '\x1f';
+        const args = ['log', `--format=%H${SEP}%an${SEP}%aI${SEP}%ar${SEP}%s`, `-n${limit}`];
+        if (author) { args.push(`--author=${author}`); }
+        const output = await this.git.raw(args);
+        if (!output.trim()) { return []; }
+        return output.trim().split('\n').map((line) => {
+            const [sha, authorName, dateIso, relativeDate, ...msgParts] = line.split(SEP);
+            return {
+                sha: sha.trim(),
+                author: authorName.trim(),
+                date: new Date(dateIso.trim()),
+                relativeDate: relativeDate.trim(),
+                message: msgParts.join(SEP).trim(),
+            };
+        });
+    }
+
+    private async fetchSearchCommits(query: string, type: 'message' | 'author' | 'content'): Promise<CommitEntry[]> {
+        const SEP = '\x1f';
+        const args = ['log', '--all', `--format=%H${SEP}%an${SEP}%aI${SEP}%ar${SEP}%s`, '-n200'];
+        switch (type) {
+            case 'message': args.push(`--grep=${query}`); break;
+            case 'author':  args.push(`--author=${query}`); break;
+            case 'content': args.push(`-S${query}`); break;
+        }
+        const output = await this.git.raw(args);
+        if (!output.trim()) { return []; }
+        return output.trim().split('\n')
+            .filter(line => /^[0-9a-f]{40}\x1f/i.test(line))
+            .map((line) => {
+                const [sha, authorName, dateIso, relativeDate, ...msgParts] = line.split(SEP);
+                return {
+                    sha: sha.trim(),
+                    author: authorName.trim(),
+                    date: new Date(dateIso.trim()),
+                    relativeDate: relativeDate.trim(),
+                    message: msgParts.join(SEP).trim(),
+                };
+            });
+    }
+
+    private async fetchCommitsBetween(from: string, to: string): Promise<CommitEntry[]> {
+        const SEP = '\x1f';
+        const output = await this.git.raw([
+            'log', `${from}..${to}`,
+            `--format=%H${SEP}%an${SEP}%aI${SEP}%ar${SEP}%s`,
+        ]);
+        if (!output.trim()) { return []; }
+        return output.trim().split('\n')
+            .filter(line => /^[0-9a-f]{40}\x1f/i.test(line))
+            .map((line) => {
+                const [sha, authorName, dateIso, relativeDate, ...msgParts] = line.split(SEP);
+                return {
+                    sha: sha.trim(),
+                    author: authorName.trim(),
+                    date: new Date(dateIso.trim()),
+                    relativeDate: relativeDate.trim(),
+                    message: msgParts.join(SEP).trim(),
+                };
+            });
     }
 
     private async fetchFileHistory(filePath: string): Promise<FileHistoryEntry[]> {
