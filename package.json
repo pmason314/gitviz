@@ -30,7 +30,7 @@
       "gitlite": [
         { "id": "gitlite.fileHistory", "name": "File History" },
         { "id": "gitlite.lineHistory", "name": "Line History" },
-        { "id": "gitlite.hotFiles",    "name": "Hot Files"    }
+        { "id": "gitlite.hotFiles",    "name": "Hot Files", "type": "webview" }
       ]
     },
     "menus": {
@@ -41,9 +41,24 @@
           "group": "navigation"
         },
         {
-          "command": "gitlite.hotFiles.setTimeframe",
+          "command": "gitlite.hotFiles.set7",
           "when": "view == gitlite.hotFiles",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitlite.hotFiles.set30",
+          "when": "view == gitlite.hotFiles",
+          "group": "navigation@2"
+        },
+        {
+          "command": "gitlite.hotFiles.set90",
+          "when": "view == gitlite.hotFiles",
+          "group": "navigation@3"
+        },
+        {
+          "command": "gitlite.hotFiles.setAll",
+          "when": "view == gitlite.hotFiles",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -54,7 +69,7 @@
         },
         {
           "command": "gitlite.fileHistory.diffWithPrevious",
-          "when": "viewItem == historyEntry && (view == gitlite.fileHistory || view == gitlite.lineHistory)",
+          "when": "viewItem == historyEntry && view == gitlite.fileHistory",
           "group": "1_open@2"
         },
         {
@@ -65,7 +80,7 @@
         {
           "command": "gitlite.copySha",
           "when": "viewItem == historyEntry && (view == gitlite.fileHistory || view == gitlite.lineHistory)",
-          "group": "2_copy@1"
+          "group": "1_open@4"
         },
         {
           "command": "gitlite.hotFiles.openFileHistory",
@@ -85,7 +100,7 @@
       },
       {
         "command": "gitlite.copySha",
-        "title": "GitLite: Copy Commit SHA"
+        "title": "Copy Commit SHA"
       },
       {
         "command": "gitlite.openCommitDetails",
@@ -117,9 +132,24 @@
         "title": "Show Commit Details"
       },
       {
-        "command": "gitlite.hotFiles.setTimeframe",
-        "title": "GitLite: Change Hot Files Timeframe",
-        "icon": "$(calendar)"
+        "command": "gitlite.hotFiles.set7",
+        "title": "GitLite: Hot Files — Last 7 Days",
+        "icon": { "dark": "icons/tf-7d-dark.svg", "light": "icons/tf-7d-light.svg" }
+      },
+      {
+        "command": "gitlite.hotFiles.set30",
+        "title": "GitLite: Hot Files — Last 30 Days",
+        "icon": { "dark": "icons/tf-30d-dark.svg", "light": "icons/tf-30d-light.svg" }
+      },
+      {
+        "command": "gitlite.hotFiles.set90",
+        "title": "GitLite: Hot Files — Last 90 Days",
+        "icon": { "dark": "icons/tf-90d-dark.svg", "light": "icons/tf-90d-light.svg" }
+      },
+      {
+        "command": "gitlite.hotFiles.setAll",
+        "title": "GitLite: Hot Files — All Time",
+        "icon": { "dark": "icons/tf-all-dark.svg", "light": "icons/tf-all-light.svg" }
       },
       {
         "command": "gitlite.hotFiles.openFileHistory",
@@ -128,6 +158,23 @@
       {
         "command": "gitlite.lineHistory.openDiff",
         "title": "Open Diff at This Commit"
+      }
+    ],
+    "colors": [
+      {
+        "id": "gitlite.hotFile.heatHigh",
+        "description": "Color for the most frequently changed files in the Hot Files view.",
+        "defaults": { "dark": "#b8784e", "light": "#9e5c38", "highContrast": "#ff6600" }
+      },
+      {
+        "id": "gitlite.hotFile.heatMedium",
+        "description": "Color for moderately changed files in the Hot Files view.",
+        "defaults": { "dark": "#9e8a42", "light": "#7a6a28", "highContrast": "#ddaa00" }
+      },
+      {
+        "id": "gitlite.hotFile.heatLow",
+        "description": "Color for less frequently changed files in the Hot Files view.",
+        "defaults": { "dark": "#4488bb", "light": "#2266aa", "highContrast": "#4499cc" }
       }
     ],
     "configuration": {

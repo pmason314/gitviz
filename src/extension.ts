@@ -9,7 +9,7 @@ import { LineHeatmap } from './annotations/LineHeatmap';
 import { BlameHoverProvider } from './hovers/BlameHoverProvider';
 import { FileHistoryProvider } from './views/FileHistoryProvider';
 import { LineHistoryProvider } from './views/LineHistoryProvider';
-import { HotFilesProvider, Timeframe } from './views/HotFilesProvider';
+import { HotFilesView } from './views/HotFilesView';
 import { RevisionContentProvider, REVISION_SCHEME, makeRevisionUri } from './editors/RevisionContentProvider';
 import { CommitDetailsPanel } from './webviews/CommitDetailsPanel';
 import { FileHistoryEntry, HotFileEntry } from './git/types';
@@ -66,7 +66,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const hoverProvider = new BlameHoverProvider(gitService, config);
     const fileHistoryProvider = new FileHistoryProvider(gitService);
     const lineHistoryProvider = new LineHistoryProvider(gitService);
-    const hotFilesProvider = new HotFilesProvider(gitService);
+    const hotFilesView = new HotFilesView(gitService);
     const revisionProvider = new RevisionContentProvider(gitService);
     const commitDetailsPanel = new CommitDetailsPanel(gitService);
 
@@ -79,14 +79,14 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         hoverProvider,
         fileHistoryProvider,
         lineHistoryProvider,
-        hotFilesProvider,
+        hotFilesView,
         revisionProvider,
         commitDetailsPanel,
         vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider),
         vscode.window.registerTreeDataProvider('gitlite.fileHistory', fileHistoryProvider),
         vscode.window.registerTreeDataProvider('gitlite.lineHistory', lineHistoryProvider),
-        vscode.window.registerTreeDataProvider('gitlite.hotFiles', hotFilesProvider),
         vscode.workspace.registerTextDocumentContentProvider(REVISION_SCHEME, revisionProvider),
+        vscode.window.registerWebviewViewProvider(HotFilesView.viewType, hotFilesView),
     );
 
     // -------------------------------------------------------------------------
@@ -214,20 +214,10 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             });
         }),
 
-        vscode.commands.registerCommand('gitlite.hotFiles.setTimeframe', async () => {
-            const items: { label: string; timeframe: Timeframe }[] = [
-                { label: '$(clock) Last 7 days',  timeframe: 7   },
-                { label: '$(clock) Last 30 days', timeframe: 30  },
-                { label: '$(clock) Last 90 days', timeframe: 90  },
-                { label: '$(calendar) All time',  timeframe: null },
-            ];
-            const picked = await vscode.window.showQuickPick(items, {
-                placeHolder: 'Select timeframe for Hot Files',
-            });
-            if (picked) {
-                hotFilesProvider.setTimeframe(picked.timeframe);
-            }
-        }),
+        vscode.commands.registerCommand('gitlite.hotFiles.set7',   () => { hotFilesView.setTimeframe(7);    }),
+        vscode.commands.registerCommand('gitlite.hotFiles.set30',  () => { hotFilesView.setTimeframe(30);   }),
+        vscode.commands.registerCommand('gitlite.hotFiles.set90',  () => { hotFilesView.setTimeframe(90);   }),
+        vscode.commands.registerCommand('gitlite.hotFiles.setAll', () => { hotFilesView.setTimeframe(null); }),
 
         vscode.commands.registerCommand('gitlite.hotFiles.openFileHistory', async (entry: HotFileEntry) => {
             const absPath = path.join(gitService.getRepoRoot(), entry.path);

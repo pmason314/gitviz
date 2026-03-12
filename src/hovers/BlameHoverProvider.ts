@@ -97,7 +97,7 @@ export class BlameHoverProvider implements vscode.HoverProvider, vscode.Disposab
             '',
             `[$(clippy) Copy SHA](command:gitlite.copySha?${copyShaArg}) ` +
             `&nbsp; [$(eye) Show Commit Details](command:gitlite.openCommitDetails?${openDetailsArg}) ` +
-            `&nbsp; [$(diff) Diff with Previous](command:gitlite.diffWithPrevious?${diffArg})`
+            `&nbsp; [$(diff) Diff with Previous](command:gitlite.diffWithPrevious?${diffArg}) &nbsp;`
         );
 
         const md = new vscode.MarkdownString(lines.join('\n'), true);
