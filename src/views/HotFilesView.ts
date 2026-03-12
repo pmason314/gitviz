@@ -214,6 +214,7 @@ body {
 .heat-high   { color: var(--vscode-gitlite-hotFile-heatHigh,   #b8784e); }
 .heat-medium { color: var(--vscode-gitlite-hotFile-heatMedium, #9e8a42); }
 .empty { padding: 6px 20px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
+#vtip { display: none; position: fixed; background: var(--vscode-editorHoverWidget-background); border: 1px solid var(--vscode-editorHoverWidget-border); color: var(--vscode-editorHoverWidget-foreground); padding: 2px 6px; font-size: 0.85em; white-space: nowrap; pointer-events: none; z-index: 1000; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36)); }
 </style>
 </head>
 <body>
@@ -223,10 +224,11 @@ body {
       <path d="M6.5 1a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zm-4.5 5.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0zm11.854 7.354-3-3-.708.708 3 3 .708-.708z"/>
     </svg>
     <input class="s-input" id="f" type="text" placeholder="Filter by path or glob\u2026" autocomplete="off" spellcheck="false"/>
-    <button class="s-clear" id="c" title="Clear filter">\u2715</button>
+    <button class="s-clear" id="c" data-vtip="Clear filter">\u2715</button>
   </div>
 </div>
 <div id="list"></div>
+<div id="vtip"></div>
 <script>
 var vsc = acquireVsCodeApi();
 var inp = document.getElementById('f');
@@ -262,7 +264,7 @@ function render() {
     return '<div class="row" data-path="' + esc(f.path) + '"' + (f.exists === false ? ' style="opacity:0.5;text-decoration:line-through;"' : '') + '>'
       + '<span class="name ' + heat + '">' + esc(name) + '</span>'
       + '<span class="meta">' + esc(meta) + '</span>'
-      + '<button class="hist-btn" data-path="' + esc(f.path) + '" title="Open File History">' + histSvg + '</button>'
+      + '<button class="hist-btn" data-path="' + esc(f.path) + '" data-vtip="Open File History">' + histSvg + '</button>'
       + '</div>';
   }).join('');
 }
@@ -293,6 +295,30 @@ window.addEventListener('message', function(e) {
     render();
   }
 });
+(function() {
+  var vtip = document.getElementById('vtip');
+  var vtipT;
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target.closest('[data-vtip]');
+    clearTimeout(vtipT);
+    if (!el) { vtip.style.display = 'none'; return; }
+    vtipT = setTimeout(function() {
+      var r = el.getBoundingClientRect();
+      vtip.textContent = el.dataset.vtip;
+      vtip.style.display = 'block';
+      vtip.style.left = r.left + 'px';
+      vtip.style.top = (r.bottom + 4) + 'px';
+      var tr = vtip.getBoundingClientRect();
+      if (tr.bottom > window.innerHeight - 4) { vtip.style.top = Math.max(4, r.top - tr.height - 4) + 'px'; }
+      if (tr.right > window.innerWidth - 16) { vtip.style.left = Math.max(4, window.innerWidth - tr.width - 16) + 'px'; }
+    }, 500);
+  });
+  document.addEventListener('mouseout', function(e) {
+    if (!e.target.closest('[data-vtip]')) { return; }
+    clearTimeout(vtipT);
+    vtip.style.display = 'none';
+  });
+})();
 </script>
 </body>
 </html>`;

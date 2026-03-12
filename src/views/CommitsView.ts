@@ -174,6 +174,7 @@ body {
 .row:hover .copy-btn { display: flex; }
 .copy-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
 .empty { padding: 6px 20px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
+#vtip { display: none; position: fixed; background: var(--vscode-editorHoverWidget-background); border: 1px solid var(--vscode-editorHoverWidget-border); color: var(--vscode-editorHoverWidget-foreground); padding: 2px 6px; font-size: 0.85em; white-space: nowrap; pointer-events: none; z-index: 1000; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36)); }
 #tip {
   display: none;
   position: fixed;
@@ -185,11 +186,11 @@ body {
   font-size: 0.9em; line-height: 1.4;
   white-space: normal; overflow-wrap: break-word;
   box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36));
+  pointer-events: none;
   z-index: 100;
 }
 .tip-meta { font-size: 0.85em; opacity: 0.8; margin-top: 2px; }
-.tip-sha { color: var(--vscode-textLink-foreground); text-decoration: underline; font-family: var(--vscode-editor-font-family, monospace); cursor: pointer; }
-.tip-sha:hover { color: var(--vscode-textLink-activeForeground); }
+.tip-sha { font-family: var(--vscode-editor-font-family, monospace); }
 #suggest {
   display: none;
   position: sticky;
@@ -220,12 +221,13 @@ body {
       <path d="M6.5 1a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zm-4.5 5.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0zm11.854 7.354-3-3-.708.708 3 3 .708-.708z"/>
     </svg>
     <input class="s-input" id="f" type="text" placeholder="Filter by message, SHA, or @author\u2026" autocomplete="off" spellcheck="false"/>
-    <button class="s-clear" id="c" title="Clear filter">\u2715</button>
+    <button class="s-clear" id="c" data-vtip="Clear filter">\u2715</button>
   </div>
 </div>
 <div id="suggest"></div>
 <div id="list"></div>
 <div id="tip"></div>
+<div id="vtip"></div>
 <script>
 var vsc = acquireVsCodeApi();
 var inp = document.getElementById('f');
@@ -323,7 +325,7 @@ function render() {
       + '<span class="msg">' + esc(c.message) + '</span>'
       + (dateFirst ? '<span class="date-first">' + esc(dateFirst) + '</span>' : '')
       + (authRest ? '<span class="auth-rest">' + esc(authRest) + '</span>' : '')
-      + '<button class="copy-btn" data-sha="' + esc(c.sha) + '" title="Copy SHA">' + copySvg + '</button>'
+      + '<button class="copy-btn" data-sha="' + esc(c.sha) + '" data-vtip="Copy SHA">' + copySvg + '</button>'
       + '</div>';
   }).join('');
 }
@@ -348,7 +350,7 @@ lst.addEventListener('mouseover', function(e) {
     var rect = row.getBoundingClientRect();
     tip.innerHTML = '<div>' + esc(row.dataset.tooltip || '') + '</div>'
       + '<div class="tip-meta">'
-      + (sha7 ? '<a class="tip-sha" href="#" data-sha="' + esc(row.dataset.sha) + '">' + esc(sha7) + '</a>' : '')
+      + (sha7 ? '<span class="tip-sha">' + esc(sha7) + '</span>' : '')
       + (metaParts ? (sha7 ? '\u00a0\u00b7\u00a0' : '') + esc(metaParts) : '')
       + '</div>';
     tip.style.display = 'block';
@@ -362,23 +364,8 @@ lst.addEventListener('mouseover', function(e) {
 
 lst.addEventListener('mouseout', function(e) {
   if (!e.target.closest('.row')) { return; }
-  if (tip.contains(e.relatedTarget)) { return; }
   clearTimeout(tipTimer);
   tip.style.display = 'none';
-});
-
-tip.addEventListener('mouseleave', function() {
-  clearTimeout(tipTimer);
-  tip.style.display = 'none';
-});
-
-tip.addEventListener('click', function(e) {
-  var link = e.target.closest('.tip-sha');
-  if (link) {
-    e.preventDefault();
-    vsc.postMessage({type: 'openCommitDetails', sha: link.dataset.sha});
-    tip.style.display = 'none';
-  }
 });
 
 inp.addEventListener('input', function() {
@@ -444,11 +431,34 @@ window.addEventListener('message', function(e) {
     hideSuggest();
     render();
     inp.focus();
-    inp.select();
   } else if (msg.type === 'setAuthors') {
     allAuthors = (msg.names || []).map(function(n) { return n.trim(); }).filter(Boolean);
   }
 });
+(function() {
+  var vtip = document.getElementById('vtip');
+  var vtipT;
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target.closest('[data-vtip]');
+    clearTimeout(vtipT);
+    if (!el) { vtip.style.display = 'none'; return; }
+    vtipT = setTimeout(function() {
+      var r = el.getBoundingClientRect();
+      vtip.textContent = el.dataset.vtip;
+      vtip.style.display = 'block';
+      vtip.style.left = r.left + 'px';
+      vtip.style.top = (r.bottom + 4) + 'px';
+      var tr = vtip.getBoundingClientRect();
+      if (tr.bottom > window.innerHeight - 4) { vtip.style.top = Math.max(4, r.top - tr.height - 4) + 'px'; }
+      if (tr.right > window.innerWidth - 4) { vtip.style.left = Math.max(4, window.innerWidth - tr.width - 4) + 'px'; }
+    }, 500);
+  });
+  document.addEventListener('mouseout', function(e) {
+    if (!e.target.closest('[data-vtip]')) { return; }
+    clearTimeout(vtipT);
+    vtip.style.display = 'none';
+  });
+})();
 </script>
 </body>
 </html>`;

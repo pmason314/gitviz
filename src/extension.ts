@@ -239,8 +239,11 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             await vscode.commands.executeCommand('vscode.diff', prevUri, currUri, title);
         }),
 
-        vscode.commands.registerCommand('gitlite.revealCommit', (_sha?: string) => {
-            vscode.window.showInformationMessage('GitLite: Commits view coming in Phase 3.');
+        vscode.commands.registerCommand('gitlite.revealCommit', async (sha?: string) => {
+            if (!sha) { return; }
+            // Focus the Commits view panel, then filter to this SHA
+            await vscode.commands.executeCommand(`${CommitsView.viewType}.focus`);
+            commitsView.setFilter(sha.slice(0, 7));
         }),
 
         // ---------------------------------------------------------------------

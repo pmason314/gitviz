@@ -144,6 +144,7 @@ function buildHtml(codiconsUri: string, cspSource: string): string {
     }
     .compare-btn:hover { background: var(--vscode-button-hoverBackground); }
     .compare-btn:active { opacity: 0.85; }
+    #vtip { display: none; position: fixed; background: var(--vscode-editorHoverWidget-background); border: 1px solid var(--vscode-editorHoverWidget-border); color: var(--vscode-editorHoverWidget-foreground); padding: 2px 6px; font-size: 0.85em; white-space: nowrap; pointer-events: none; z-index: 1000; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36)); }
   </style>
 </head>
 <body>
@@ -151,7 +152,7 @@ function buildHtml(codiconsUri: string, cspSource: string): string {
     <label>Base</label>
     <div class="input-row">
       <input id="ref1" type="text" placeholder="Branch, tag, SHA, HEAD\u2026" autocomplete="off" spellcheck="false" />
-      <button class="pick-btn" id="pick1" title="Choose from branches, tags, and commits">
+      <button class="pick-btn" id="pick1" data-vtip="Choose from branches, tags, and commits">
         <i class="codicon codicon-git-branch"></i>
       </button>
     </div>
@@ -160,12 +161,13 @@ function buildHtml(codiconsUri: string, cspSource: string): string {
     <label>Compare</label>
     <div class="input-row">
       <input id="ref2" type="text" placeholder="Branch, tag, SHA, HEAD\u2026" autocomplete="off" spellcheck="false" />
-      <button class="pick-btn" id="pick2" title="Choose from branches, tags, and commits">
+      <button class="pick-btn" id="pick2" data-vtip="Choose from branches, tags, and commits">
         <i class="codicon codicon-git-branch"></i>
       </button>
     </div>
   </div>
   <button class="compare-btn" id="btn">Compare</button>
+  <div id="vtip"></div>
   <script>
     const vsc = acquireVsCodeApi();
 
@@ -201,6 +203,30 @@ function buildHtml(codiconsUri: string, cspSource: string): string {
         document.getElementById(id).value = msg.value;
       }
     });
+    (function() {
+      var vtip = document.getElementById('vtip');
+      var vtipT;
+      document.addEventListener('mouseover', function(e) {
+        var el = e.target.closest('[data-vtip]');
+        clearTimeout(vtipT);
+        if (!el) { vtip.style.display = 'none'; return; }
+        vtipT = setTimeout(function() {
+          var r = el.getBoundingClientRect();
+          vtip.textContent = el.dataset.vtip;
+          vtip.style.display = 'block';
+          vtip.style.left = r.left + 'px';
+          vtip.style.top = (r.bottom + 4) + 'px';
+          var tr = vtip.getBoundingClientRect();
+          if (tr.bottom > window.innerHeight - 4) { vtip.style.top = Math.max(4, r.top - tr.height - 4) + 'px'; }
+          if (tr.right > window.innerWidth - 4) { vtip.style.left = Math.max(4, window.innerWidth - tr.width - 4) + 'px'; }
+        }, 500);
+      });
+      document.addEventListener('mouseout', function(e) {
+        if (!e.target.closest('[data-vtip]')) { return; }
+        clearTimeout(vtipT);
+        vtip.style.display = 'none';
+      });
+    })();
   </script>
 </body>
 </html>`;

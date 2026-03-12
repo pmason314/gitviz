@@ -68,7 +68,7 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<FileHistoryE
         const item = new vscode.TreeItem(entry.message || '(no message)');
         item.description = `${short} · ${entry.author} · ${entry.relativeDate}`;
         item.tooltip = new vscode.MarkdownString(
-            `**${escapeMd(entry.message)}**\n\n${escapeMd(entry.author)} · ${entry.date.toLocaleString()}\n\n\`${short}\``
+            `**${escapeMd(entry.message)}**\n\n${short} · ${escapeMd(entry.relativeDate)} · ${escapeMd(entry.author)}`
         );
         item.contextValue = 'historyEntry';
         item.iconPath = new vscode.ThemeIcon('git-commit');

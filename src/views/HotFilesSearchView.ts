@@ -72,6 +72,7 @@ export class HotFilesSearchView implements vscode.WebviewViewProvider, vscode.Di
     line-height: 1;
   }
   .clear:hover { opacity: 1; }
+  #vtip { display: none; position: fixed; background: var(--vscode-editorHoverWidget-background); border: 1px solid var(--vscode-editorHoverWidget-border); color: var(--vscode-editorHoverWidget-foreground); padding: 2px 6px; font-size: 0.85em; white-space: nowrap; pointer-events: none; z-index: 1000; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36)); }
 </style>
 </head>
 <body>
@@ -80,7 +81,7 @@ export class HotFilesSearchView implements vscode.WebviewViewProvider, vscode.Di
     <path d="M6.5 1a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zm-4.5 5.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0zm11.854 7.354-3-3-.708.708 3 3 .708-.708z"/>
   </svg>
   <input id="filter" type="text" placeholder="Filter by path or glob…" autocomplete="off" spellcheck="false" />
-  <button class="clear" id="clear" title="Clear filter">✕</button>
+  <button class="clear" id="clear" data-vtip="Clear filter">✕</button>
 </div>
 <script>
   const vscode = acquireVsCodeApi();
@@ -107,7 +108,32 @@ export class HotFilesSearchView implements vscode.WebviewViewProvider, vscode.Di
       clear.style.display = msg.value ? 'flex' : 'none';
     }
   });
+  (function() {
+    const vtip = document.getElementById('vtip');
+    let vtipT;
+    document.addEventListener('mouseover', function(e) {
+      const el = e.target.closest('[data-vtip]');
+      clearTimeout(vtipT);
+      if (!el) { vtip.style.display = 'none'; return; }
+      vtipT = setTimeout(function() {
+        const r = el.getBoundingClientRect();
+        vtip.textContent = el.dataset.vtip;
+        vtip.style.display = 'block';
+        vtip.style.left = r.left + 'px';
+        vtip.style.top = (r.bottom + 4) + 'px';
+        const tr = vtip.getBoundingClientRect();
+        if (tr.bottom > window.innerHeight - 4) { vtip.style.top = Math.max(4, r.top - tr.height - 4) + 'px'; }
+        if (tr.right > window.innerWidth - 4) { vtip.style.left = Math.max(4, window.innerWidth - tr.width - 4) + 'px'; }
+      }, 500);
+    });
+    document.addEventListener('mouseout', function(e) {
+      if (!e.target.closest('[data-vtip]')) { return; }
+      clearTimeout(vtipT);
+      vtip.style.display = 'none';
+    });
+  })();
 </script>
+<div id="vtip"></div>
 </body>
 </html>`;
     }

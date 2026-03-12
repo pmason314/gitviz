@@ -70,6 +70,8 @@ export class CommitDetailsPanel implements vscode.Disposable {
             await vscode.commands.executeCommand('vscode.diff', prevUri, currUri, title, { viewColumn });
         } else if (msg.command === 'revealCommit' && msg.sha) {
             await vscode.commands.executeCommand('gitlite.revealCommit', msg.sha);
+        } else if (msg.command === 'copySha' && msg.sha) {
+            await vscode.env.clipboard.writeText(msg.sha);
         }
     }
 
@@ -130,8 +132,11 @@ function buildHtml(commit: CommitInfo, files: CommitFileEntry[], highlightRelPat
       margin: 0;
     }
     .message { font-size: 1.1em; font-weight: 600; margin: 0 0 4px; }
-    .sha { font-family: monospace; color: var(--vscode-descriptionForeground); font-size: 0.85em; margin-bottom: 10px; cursor: pointer; }
-    .sha:hover { text-decoration: underline; }
+    .sha-row { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+    .sha-text { font-family: monospace; color: var(--vscode-descriptionForeground); font-size: 0.85em; cursor: pointer; }
+    .sha-text:hover { text-decoration: underline; }
+    .copy-btn { background: transparent; border: none; padding: 2px 4px; cursor: pointer; color: var(--vscode-descriptionForeground); opacity: 0.5; display: flex; align-items: center; border-radius: 3px; flex-shrink: 0; }
+    .copy-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15)); }
     .body { white-space: pre-wrap; color: var(--vscode-descriptionForeground); margin: 0 0 10px; font-size: 0.9em; }
     .meta { color: var(--vscode-descriptionForeground); font-size: 0.9em; margin: 2px 0; }
     hr { border: none; border-top: 1px solid var(--vscode-panel-border); margin: 16px 0; }
@@ -153,11 +158,15 @@ function buildHtml(commit: CommitInfo, files: CommitFileEntry[], highlightRelPat
     .status-D { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
     .status-R { color: var(--vscode-gitDecoration-renamedResourceForeground, #73c991); }
     .status-C { color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950); }
+    #vtip { display: none; position: fixed; background: var(--vscode-editorHoverWidget-background); border: 1px solid var(--vscode-editorHoverWidget-border); color: var(--vscode-editorHoverWidget-foreground); padding: 2px 6px; font-size: 0.85em; white-space: nowrap; pointer-events: none; z-index: 1000; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36)); }
   </style>
 </head>
 <body>
   <div class="message">${escHtml(commit.message)}</div>
-  <div class="sha" onclick="revealCommit()" title="Click to reveal in Commits view">${fullSha}</div>
+  <div class="sha-row">
+    <span class="sha-text" onclick="revealCommit()" data-vtip="Click to reveal in Commits view">${fullSha}</span>
+    <button class="copy-btn" onclick="copySha()" data-vtip="Copy SHA"><svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M4 4v-3h9v11h-3v1h-9v-11h3zm1 0h5v9h2v-9h-7v0zm-1 1h-2v9h7v-9h-5z"/></svg></button>
+  </div>
   ${commit.body ? `<pre class="body">${escHtml(commit.body)}</pre>` : ''}
   <div class="meta">👤 ${escHtml(commit.author)} &lt;${escHtml(commit.authorEmail)}&gt;</div>
   <div class="meta">📅 ${dateStr}</div>
@@ -165,6 +174,7 @@ function buildHtml(commit: CommitInfo, files: CommitFileEntry[], highlightRelPat
   <div class="section-heading">${files.length} file${files.length !== 1 ? 's' : ''} changed</div>
   <div class="summary">${summary}</div>
   <div class="files">${filesHtml}</div>
+  <div id="vtip"></div>
   <script>
     const vscode = acquireVsCodeApi();
     const commitSha = ${JSON.stringify(commit.sha)};
@@ -174,6 +184,33 @@ function buildHtml(commit: CommitInfo, files: CommitFileEntry[], highlightRelPat
     function revealCommit() {
       vscode.postMessage({ command: 'revealCommit', sha: commitSha });
     }
+    function copySha() {
+      vscode.postMessage({ command: 'copySha', sha: commitSha });
+    }
+    (function() {
+      var vtip = document.getElementById('vtip');
+      var vtipT;
+      document.addEventListener('mouseover', function(e) {
+        var el = e.target.closest('[data-vtip]');
+        clearTimeout(vtipT);
+        if (!el) { vtip.style.display = 'none'; return; }
+        vtipT = setTimeout(function() {
+          var r = el.getBoundingClientRect();
+          vtip.textContent = el.dataset.vtip;
+          vtip.style.display = 'block';
+          vtip.style.left = r.left + 'px';
+          vtip.style.top = (r.bottom + 4) + 'px';
+          var tr = vtip.getBoundingClientRect();
+          if (tr.bottom > window.innerHeight - 4) { vtip.style.top = Math.max(4, r.top - tr.height - 4) + 'px'; }
+          if (tr.right > window.innerWidth - 4) { vtip.style.left = Math.max(4, window.innerWidth - tr.width - 4) + 'px'; }
+        }, 500);
+      });
+      document.addEventListener('mouseout', function(e) {
+        if (!e.target.closest('[data-vtip]')) { return; }
+        clearTimeout(vtipT);
+        vtip.style.display = 'none';
+      });
+    })();
   </script>
 </body>
 </html>`;
