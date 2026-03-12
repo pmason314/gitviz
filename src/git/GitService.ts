@@ -2,7 +2,7 @@ import * as path from 'path';
 import simpleGit, { SimpleGit } from 'simple-git';
 import { BlameCache } from './BlameCache';
 import { CommitCache } from './CommitCache';
-import { BlameInfo, CommitInfo, FileHistoryEntry } from './types';
+import { BlameInfo, CommitInfo, FileHistoryEntry, CommitFileEntry, HotFileEntry } from './types';
 
 const MAX_CONCURRENCY = 3;
 
@@ -239,6 +239,42 @@ export class GitService {
         };
     }
 
+    /**
+     * Return the raw content of a file at a given git revision.
+     * @param relativePath Path relative to the repo root.
+     * @param sha Any git revision: SHA, HEAD~1, branch name, etc.
+     */
+    async getFileAtRevision(relativePath: string, sha: string): Promise<string> {
+        return this.run(() => this.git.show([`${sha}:${relativePath}`]));
+    }
+
+    /** Return the files changed in a commit with insertion/deletion line counts. */
+    async getCommitFiles(sha: string): Promise<CommitFileEntry[]> {
+        return this.run(() => this.fetchCommitFiles(sha));
+    }
+
+    /**
+     * Return commits that touched a line range in a file (uses `git log -L`).
+     * Capped at 10 seconds to avoid blocking on large histories.
+     */
+    async getLineHistory(filePath: string, startLine: number, endLine: number): Promise<FileHistoryEntry[]> {
+        const TIMEOUT_MS = 10_000;
+        return Promise.race([
+            this.run(() => this.fetchLineHistory(filePath, startLine, endLine)),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Line history timed out after 10s')), TIMEOUT_MS)
+            ),
+        ]);
+    }
+
+    /**
+     * Return files sorted by commit frequency since the given date (or all time).
+     * Capped at 50 entries.
+     */
+    async getHotFiles(since: Date | null): Promise<HotFileEntry[]> {
+        return this.run(() => this.fetchHotFiles(since));
+    }
+
     private async fetchFileHistory(filePath: string): Promise<FileHistoryEntry[]> {
         const relativePath = path.relative(this.repoRoot, filePath);
         const output = await this.git.raw([
@@ -266,6 +302,95 @@ export class GitService {
                     relativeDate: relativeDate.trim(),
                     message: message.trim(),
                 };
+            });
+    }
+
+    private async fetchCommitFiles(sha: string): Promise<CommitFileEntry[]> {
+        // diff-tree --numstat: insertions \t deletions \t path
+        // Binary files show: - \t - \t path
+        const output = await this.git.raw([
+            'diff-tree', '--no-commit-id', '-r', '--numstat', sha,
+        ]);
+        if (!output.trim()) { return []; }
+        return output.trim().split('\n').map((line) => {
+            const tab1 = line.indexOf('\t');
+            const tab2 = line.indexOf('\t', tab1 + 1);
+            const ins = line.slice(0, tab1);
+            const del = line.slice(tab1 + 1, tab2);
+            const filePath = line.slice(tab2 + 1).trim();
+            return {
+                path: filePath,
+                insertions: ins === '-' ? -1 : parseInt(ins, 10),
+                deletions: del === '-' ? -1 : parseInt(del, 10),
+            };
+        });
+    }
+
+    private async fetchLineHistory(
+        filePath: string,
+        startLine: number,
+        endLine: number
+    ): Promise<FileHistoryEntry[]> {
+        const relativePath = path.relative(this.repoRoot, filePath);
+        const SEP = '\x1f';
+        const output = await this.git.raw([
+            'log',
+            '--no-patch',
+            `--format=%H${SEP}%an${SEP}%ae${SEP}%aI${SEP}%ar${SEP}%s`,
+            `-L${startLine},${endLine}:${relativePath}`,
+        ]);
+        if (!output.trim()) { return []; }
+        // Only keep lines starting with a 40-char hex SHA + separator
+        return output.split('\n')
+            .filter((line) => /^[0-9a-f]{40}\x1f/i.test(line))
+            .map((line) => {
+                const [sha, author, authorEmail, dateIso, relativeDate, message] = line.split(SEP);
+                return {
+                    sha: sha.trim(),
+                    author: author.trim(),
+                    authorEmail: authorEmail.trim(),
+                    date: new Date(dateIso.trim()),
+                    relativeDate: relativeDate.trim(),
+                    message: message?.trim() ?? '',
+                };
+            });
+    }
+
+    private async fetchHotFiles(since: Date | null): Promise<HotFileEntry[]> {
+        const args: string[] = ['log', '--format=COMMIT:%an', '--name-only'];
+        if (since) {
+            args.push(`--after=${since.toISOString()}`);
+        }
+        const output = await this.git.raw(args);
+        if (!output.trim()) { return []; }
+
+        const fileCounts = new Map<string, number>();
+        const fileAuthors = new Map<string, Map<string, number>>();
+        let currentAuthor = '';
+
+        for (const raw of output.split('\n')) {
+            const line = raw.trim();
+            if (line.startsWith('COMMIT:')) {
+                currentAuthor = line.slice(7);
+            } else if (line) {
+                fileCounts.set(line, (fileCounts.get(line) ?? 0) + 1);
+                if (!fileAuthors.has(line)) { fileAuthors.set(line, new Map()); }
+                const authorMap = fileAuthors.get(line)!;
+                authorMap.set(currentAuthor, (authorMap.get(currentAuthor) ?? 0) + 1);
+            }
+        }
+
+        return Array.from(fileCounts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 50)
+            .map(([filePath, count]) => {
+                const authorMap = fileAuthors.get(filePath)!;
+                let topAuthor = '';
+                let topCount = 0;
+                for (const [author, cnt] of authorMap) {
+                    if (cnt > topCount) { topCount = cnt; topAuthor = author; }
+                }
+                return { path: filePath, count, topAuthor };
             });
     }
 }

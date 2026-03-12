@@ -28,3 +28,16 @@ export interface FileHistoryEntry {
     relativeDate: string;
     message: string;
 }
+
+/** Per-file entry from git diff-tree --numstat. insertions/deletions are -1 for binary files. */
+export interface CommitFileEntry {
+    path: string;
+    insertions: number;
+    deletions: number;
+}
+
+export interface HotFileEntry {
+    path: string;
+    count: number;
+    topAuthor: string;
+}

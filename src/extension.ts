@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { GitService } from './git/GitService';
 import { BlameCache } from './git/BlameCache';
@@ -6,6 +7,12 @@ import { Config } from './config/Config';
 import { InlineBlame } from './annotations/InlineBlame';
 import { LineHeatmap } from './annotations/LineHeatmap';
 import { BlameHoverProvider } from './hovers/BlameHoverProvider';
+import { FileHistoryProvider } from './views/FileHistoryProvider';
+import { LineHistoryProvider } from './views/LineHistoryProvider';
+import { HotFilesProvider, Timeframe } from './views/HotFilesProvider';
+import { RevisionContentProvider, REVISION_SCHEME, makeRevisionUri } from './editors/RevisionContentProvider';
+import { CommitDetailsPanel } from './webviews/CommitDetailsPanel';
+import { FileHistoryEntry, HotFileEntry } from './git/types';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const repoRoot = await detectRepoRoot();
@@ -57,6 +64,11 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const inlineBlame = new InlineBlame(gitService, config);
     const heatmap = new LineHeatmap(gitService, config);
     const hoverProvider = new BlameHoverProvider(gitService, config);
+    const fileHistoryProvider = new FileHistoryProvider(gitService);
+    const lineHistoryProvider = new LineHistoryProvider(gitService);
+    const hotFilesProvider = new HotFilesProvider(gitService);
+    const revisionProvider = new RevisionContentProvider(gitService);
+    const commitDetailsPanel = new CommitDetailsPanel(gitService);
 
     // -------------------------------------------------------------------------
     // Register providers
@@ -65,7 +77,16 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         inlineBlame,
         heatmap,
         hoverProvider,
+        fileHistoryProvider,
+        lineHistoryProvider,
+        hotFilesProvider,
+        revisionProvider,
+        commitDetailsPanel,
         vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider),
+        vscode.window.registerTreeDataProvider('gitlite.fileHistory', fileHistoryProvider),
+        vscode.window.registerTreeDataProvider('gitlite.lineHistory', lineHistoryProvider),
+        vscode.window.registerTreeDataProvider('gitlite.hotFiles', hotFilesProvider),
+        vscode.workspace.registerTextDocumentContentProvider(REVISION_SCHEME, revisionProvider),
     );
 
     // -------------------------------------------------------------------------
@@ -91,24 +112,117 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             heatmap.toggle();
         }),
 
-        vscode.commands.registerCommand('gitlite.copySha', async (sha?: string) => {
-            const target = sha ?? await promptForSha();
-            if (target) {
-                await vscode.env.clipboard.writeText(target);
-                vscode.window.showInformationMessage(`GitLite: Copied ${target.slice(0, 7)} to clipboard.`);
+        vscode.commands.registerCommand('gitlite.copySha', async (arg?: string | FileHistoryEntry) => {
+            let sha: string | undefined;
+            if (typeof arg === 'string') {
+                sha = arg;
+            } else if (arg && typeof arg === 'object' && 'sha' in arg) {
+                sha = (arg as FileHistoryEntry).sha;
+            } else {
+                sha = await promptForSha();
+            }
+            if (sha) {
+                await vscode.env.clipboard.writeText(sha);
+                vscode.window.showInformationMessage(`GitLite: Copied ${sha.slice(0, 7)} to clipboard.`);
             }
         }),
 
-        vscode.commands.registerCommand('gitlite.openCommitDetails', (_sha?: string) => {
-            vscode.window.showInformationMessage('GitLite: Full commit details panel coming in Phase 2.');
+        vscode.commands.registerCommand('gitlite.openCommitDetails', async (arg?: string | FileHistoryEntry) => {
+            const sha = typeof arg === 'string' ? arg
+                : (arg && 'sha' in arg) ? arg.sha
+                : undefined;
+            if (sha) {
+                await commitDetailsPanel.show(sha).catch((err: Error) => {
+                    vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+                });
+            }
         }),
 
-        vscode.commands.registerCommand('gitlite.diffWithPrevious', (_args?: unknown) => {
-            vscode.window.showInformationMessage('GitLite: Diff with previous coming in Phase 2.');
+        vscode.commands.registerCommand('gitlite.diffWithPrevious', async (args?: { sha: string; filePath: string }) => {
+            if (!args) {
+                const editor = vscode.window.activeTextEditor;
+                if (!editor || editor.document.uri.scheme !== 'file') {
+                    vscode.window.showWarningMessage('GitLite: Open a file to use Diff with Previous.');
+                    return;
+                }
+                const blame = await gitService.getBlameForFile(editor.document.uri.fsPath);
+                const blameInfo = blame.get(editor.selection.active.line + 1);
+                if (!blameInfo) {
+                    vscode.window.showWarningMessage('GitLite: No blame info for current line.');
+                    return;
+                }
+                args = { sha: blameInfo.sha, filePath: editor.document.uri.fsPath };
+            }
+            const repoRoot = gitService.getRepoRoot();
+            const prevUri = makeRevisionUri(repoRoot, `${args.sha}~1`, args.filePath);
+            const currUri = makeRevisionUri(repoRoot, args.sha, args.filePath);
+            const title = `${path.basename(args.filePath)} (${args.sha.slice(0, 7)}^ ↔ ${args.sha.slice(0, 7)})`;
+            await vscode.commands.executeCommand('vscode.diff', prevUri, currUri, title);
         }),
 
         vscode.commands.registerCommand('gitlite.revealCommit', (_sha?: string) => {
             vscode.window.showInformationMessage('GitLite: Commits view coming in Phase 3.');
+        }),
+
+        // ---------------------------------------------------------------------
+        // Phase 2 — File / Line History commands
+        // ---------------------------------------------------------------------
+
+        vscode.commands.registerCommand('gitlite.openLineHistory', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showWarningMessage('GitLite: No active editor.');
+                return;
+            }
+            await lineHistoryProvider.loadForSelection(editor);
+            await vscode.commands.executeCommand('gitlite.lineHistory.focus');
+        }),
+
+        vscode.commands.registerCommand('gitlite.fileHistory.openAtRevision', async (entry: FileHistoryEntry) => {
+            const filePath = fileHistoryProvider.getCurrentFilePath();
+            if (!filePath) { return; }
+            const uri = makeRevisionUri(gitService.getRepoRoot(), entry.sha, filePath);
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { preview: true });
+        }),
+
+        vscode.commands.registerCommand('gitlite.fileHistory.diffWithPrevious', async (entry: FileHistoryEntry) => {
+            const filePath = fileHistoryProvider.getCurrentFilePath();
+            if (!filePath) { return; }
+            const repoRoot = gitService.getRepoRoot();
+            const prevUri = makeRevisionUri(repoRoot, `${entry.sha}~1`, filePath);
+            const currUri = makeRevisionUri(repoRoot, entry.sha, filePath);
+            const title = `${path.basename(filePath)} (${entry.sha.slice(0, 7)}^ ↔ ${entry.sha.slice(0, 7)})`;
+            await vscode.commands.executeCommand('vscode.diff', prevUri, currUri, title);
+        }),
+
+        vscode.commands.registerCommand('gitlite.fileHistory.openCommitDetails', async (entry: string | FileHistoryEntry) => {
+            const sha = typeof entry === 'string' ? entry : entry.sha;
+            const highlightPath = fileHistoryProvider.getCurrentFilePath();
+            await commitDetailsPanel.show(sha, highlightPath).catch((err: Error) => {
+                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+            });
+        }),
+
+        vscode.commands.registerCommand('gitlite.hotFiles.setTimeframe', async () => {
+            const items: { label: string; timeframe: Timeframe }[] = [
+                { label: '$(clock) Last 7 days',  timeframe: 7   },
+                { label: '$(clock) Last 30 days', timeframe: 30  },
+                { label: '$(clock) Last 90 days', timeframe: 90  },
+                { label: '$(calendar) All time',  timeframe: null },
+            ];
+            const picked = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select timeframe for Hot Files',
+            });
+            if (picked) {
+                hotFilesProvider.setTimeframe(picked.timeframe);
+            }
+        }),
+
+        vscode.commands.registerCommand('gitlite.hotFiles.openFileHistory', async (entry: HotFileEntry) => {
+            const absPath = path.join(gitService.getRepoRoot(), entry.path);
+            fileHistoryProvider.loadForFile(absPath);
+            await vscode.commands.executeCommand('gitlite.fileHistory.focus');
         }),
     );
 }

@@ -17,6 +17,63 @@
   "activationEvents": ["onStartupFinished"],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gitlite",
+          "title": "GitLite",
+          "icon": "resources/gitlite.svg"
+        }
+      ]
+    },
+    "views": {
+      "gitlite": [
+        { "id": "gitlite.fileHistory", "name": "File History" },
+        { "id": "gitlite.lineHistory", "name": "Line History" },
+        { "id": "gitlite.hotFiles",    "name": "Hot Files"    }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "gitlite.openLineHistory",
+          "when": "view == gitlite.lineHistory",
+          "group": "navigation"
+        },
+        {
+          "command": "gitlite.hotFiles.setTimeframe",
+          "when": "view == gitlite.hotFiles",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "gitlite.fileHistory.openAtRevision",
+          "when": "viewItem == historyEntry && (view == gitlite.fileHistory || view == gitlite.lineHistory)",
+          "group": "1_open@1"
+        },
+        {
+          "command": "gitlite.fileHistory.diffWithPrevious",
+          "when": "viewItem == historyEntry && (view == gitlite.fileHistory || view == gitlite.lineHistory)",
+          "group": "1_open@2"
+        },
+        {
+          "command": "gitlite.fileHistory.openCommitDetails",
+          "when": "viewItem == historyEntry && (view == gitlite.fileHistory || view == gitlite.lineHistory)",
+          "group": "1_open@3"
+        },
+        {
+          "command": "gitlite.copySha",
+          "when": "viewItem == historyEntry && (view == gitlite.fileHistory || view == gitlite.lineHistory)",
+          "group": "2_copy@1"
+        },
+        {
+          "command": "gitlite.hotFiles.openFileHistory",
+          "when": "viewItem == hotFile && view == gitlite.hotFiles",
+          "group": "1_open@1"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "gitlite.toggleBlame",
@@ -41,6 +98,32 @@
       {
         "command": "gitlite.revealCommit",
         "title": "GitLite: Reveal Commit in Commits View"
+      },
+      {
+        "command": "gitlite.openLineHistory",
+        "title": "GitLite: Show Line History",
+        "icon": "$(history)"
+      },
+      {
+        "command": "gitlite.fileHistory.openAtRevision",
+        "title": "Open at This Revision"
+      },
+      {
+        "command": "gitlite.fileHistory.diffWithPrevious",
+        "title": "Diff with Previous Commit"
+      },
+      {
+        "command": "gitlite.fileHistory.openCommitDetails",
+        "title": "Show Commit Details"
+      },
+      {
+        "command": "gitlite.hotFiles.setTimeframe",
+        "title": "GitLite: Change Hot Files Timeframe",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "gitlite.hotFiles.openFileHistory",
+        "title": "Open File History"
       }
     ],
     "configuration": {
