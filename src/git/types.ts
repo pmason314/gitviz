@@ -34,6 +34,8 @@ export interface CommitFileEntry {
     path: string;
     insertions: number;
     deletions: number;
+    /** A=added, M=modified, D=deleted, R=renamed, C=copied, ?=unknown */
+    status: 'A' | 'M' | 'D' | 'R' | 'C' | '?';
 }
 
 export interface HotFileEntry {
@@ -102,4 +104,19 @@ export interface CommitEntry {
     date: Date;
     relativeDate: string;
     message: string;
+}
+
+/**
+ * A ref option surfaced in the Compare view's QuickPick picker.
+ * Shape is a superset of vscode.QuickPickItem so it works directly with showQuickPick.
+ */
+export interface RefItem {
+    /** Label shown in the quick pick (includes a codicon prefix). */
+    label: string;
+    /** Short SHA or relative date shown to the right of the label. */
+    description: string;
+    /** Commit subject shown below the label. */
+    detail?: string;
+    /** The actual ref string to use in git commands (empty string = working dir). */
+    value: string;
 }

@@ -4,7 +4,7 @@ import { BlameCache } from './BlameCache';
 import { CommitCache } from './CommitCache';
 import {
     BlameInfo, CommitInfo, FileHistoryEntry, CommitFileEntry, HotFileEntry,
-    BranchInfo, RemoteInfo, RemoteBranchInfo, TagInfo, StashInfo, ContributorInfo, CommitEntry,
+    BranchInfo, RemoteInfo, RemoteBranchInfo, TagInfo, StashInfo, ContributorInfo, CommitEntry, RefItem,
 } from './types';
 
 const MAX_CONCURRENCY = 3;
@@ -302,6 +302,71 @@ export class GitService {
         return this.run(() => this.fetchStashes());
     }
 
+    /**
+     * Return a unified list of refs for use in the Compare view QuickPick.
+     * Ordering: Working Directory, HEAD, current branch, other branches, tags, recent commits.
+     * The `value` field on each item is the actual string to pass to git (empty = working dir).
+     */
+    async getRefs(): Promise<RefItem[]> {
+        const [branches, tags, commits] = await Promise.all([
+            this.getBranches(),
+            this.getTags(),
+            this.getCommitsOnBranch(undefined, 50),
+        ]);
+
+        const items: RefItem[] = [];
+
+        items.push({
+            label: '$(circle-outline) Working Directory',
+            description: '',
+            detail: 'Unstaged / uncommitted changes',
+            value: '',
+        });
+        items.push({
+            label: '$(git-commit) HEAD',
+            description: '',
+            detail: 'Current commit',
+            value: 'HEAD',
+        });
+
+        // Current branch first, then others
+        const sorted = [
+            ...branches.filter(b => b.isCurrent),
+            ...branches.filter(b => !b.isCurrent),
+        ];
+        for (const b of sorted) {
+            items.push({
+                label: `$(git-branch) ${b.name}`,
+                description: b.sha.slice(0, 7),
+                detail: b.subject,
+                value: b.name,
+                // alwaysShow keeps the item visible when filter is cleared
+            });
+        }
+
+        for (const t of tags) {
+            items.push({
+                label: `$(tag) ${t.name}`,
+                description: t.sha.slice(0, 7),
+                detail: t.subject,
+                value: t.name,
+            });
+        }
+
+        // Recent commits — label IS the short SHA so it matches by default;
+        // description and detail give author/message context
+        for (const c of commits) {
+            items.push({
+                label: `$(git-commit) ${c.sha.slice(0, 7)}`,
+                description: c.relativeDate,
+                detail: `${c.author}: ${c.message}`,
+                value: c.sha,
+            });
+        }
+
+        return items;
+    }
+
     /** Return all contributors sorted by commit count descending. */
     async getContributors(): Promise<ContributorInfo[]> {
         return this.run(() => this.fetchContributors());
@@ -396,6 +461,14 @@ export class GitService {
     /** Return files changed in a stash (vs the parent commit at stash time). */
     async getStashFiles(ref: string): Promise<CommitFileEntry[]> {
         return this.run(() => this.fetchStashFiles(ref));
+    }
+
+    /**
+     * Return files that differ between two refs.
+     * Pass an empty string for either side to compare against the working tree.
+     */
+    async getDiffFiles(ref1: string, ref2: string): Promise<CommitFileEntry[]> {
+        return this.run(() => this.fetchDiffFiles(ref1, ref2));
     }
 
     // =========================================================================
@@ -538,14 +611,19 @@ export class GitService {
     }
 
     private async fetchStashFiles(ref: string): Promise<CommitFileEntry[]> {
-        let output: string;
+        let numstatOutput: string;
+        let nameStatusOutput: string;
         try {
-            output = await this.git.raw(['stash', 'show', '--numstat', ref]);
+            [numstatOutput, nameStatusOutput] = await Promise.all([
+                this.git.raw(['stash', 'show', '--numstat', ref]),
+                this.git.raw(['stash', 'show', '--name-status', ref]),
+            ]);
         } catch {
             return [];
         }
-        if (!output.trim()) { return []; }
-        return output.trim().split('\n').flatMap((line) => {
+        if (!numstatOutput.trim()) { return []; }
+        const statusMap = GitService.parseNameStatus(nameStatusOutput);
+        return numstatOutput.trim().split('\n').flatMap((line) => {
             const parts = line.match(/^(\d+|-)\s+(\d+|-)\s+(.+)$/);
             if (!parts) { return []; }
             const [, ins, del, filePath] = parts;
@@ -553,8 +631,62 @@ export class GitService {
                 path: filePath.trim(),
                 insertions: ins === '-' ? -1 : parseInt(ins, 10),
                 deletions: del === '-' ? -1 : parseInt(del, 10),
+                status: statusMap.get(filePath.trim()) ?? '?',
             }];
         });
+    }
+
+    private async fetchDiffFiles(ref1: string, ref2: string): Promise<CommitFileEntry[]> {
+        const refArgs: string[] = [];
+        if (ref1 && ref2) {
+            refArgs.push(ref1, ref2);
+        } else if (ref1) {
+            refArgs.push(ref1);
+        } else if (ref2) {
+            refArgs.push(ref2);
+        }
+        // both empty → unstaged changes (index vs working tree)
+        let numstatOutput: string;
+        let nameStatusOutput: string;
+        try {
+            [numstatOutput, nameStatusOutput] = await Promise.all([
+                this.git.raw(['diff', '--numstat', ...refArgs]),
+                this.git.raw(['diff', '--name-status', ...refArgs]),
+            ]);
+        } catch {
+            return [];
+        }
+        if (!numstatOutput.trim()) { return []; }
+        const statusMap = GitService.parseNameStatus(nameStatusOutput);
+        return numstatOutput.trim().split('\n').flatMap((line) => {
+            const parts = line.match(/^(\d+|-)\s+(\d+|-)\s+(.+)$/);
+            if (!parts) { return []; }
+            const [, ins, del, filePath] = parts;
+            return [{
+                path: filePath.trim(),
+                insertions: ins === '-' ? -1 : parseInt(ins, 10),
+                deletions: del === '-' ? -1 : parseInt(del, 10),
+                status: statusMap.get(filePath.trim()) ?? '?',
+            }];
+        });
+    }
+
+    /** Build a path→status map from `git diff --name-status` / `git diff-tree --name-status` output. */
+    private static parseNameStatus(output: string): Map<string, CommitFileEntry['status']> {
+        const map = new Map<string, CommitFileEntry['status']>();
+        for (const line of output.trim().split('\n')) {
+            if (!line.trim()) { continue; }
+            const parts = line.split('\t');
+            if (parts.length < 2) { continue; }
+            const letter = parts[0][0].toUpperCase();
+            const status = (['A', 'M', 'D', 'R', 'C'].includes(letter)
+                ? letter
+                : '?') as CommitFileEntry['status'];
+            // Renames/copies have two paths; take the last (new) path
+            const filePath = parts[parts.length - 1].trim();
+            map.set(filePath, status);
+        }
+        return map;
     }
 
     private async fetchContributors(): Promise<ContributorInfo[]> {
@@ -675,11 +807,13 @@ export class GitService {
     private async fetchCommitFiles(sha: string): Promise<CommitFileEntry[]> {
         // diff-tree --numstat: insertions \t deletions \t path
         // Binary files show: - \t - \t path
-        const output = await this.git.raw([
-            'diff-tree', '--no-commit-id', '-r', '--numstat', sha,
+        const [numstatOutput, nameStatusOutput] = await Promise.all([
+            this.git.raw(['diff-tree', '--no-commit-id', '-r', '--numstat', sha]),
+            this.git.raw(['diff-tree', '--no-commit-id', '-r', '--name-status', sha]).catch(() => ''),
         ]);
-        if (!output.trim()) { return []; }
-        return output.trim().split('\n').map((line) => {
+        if (!numstatOutput.trim()) { return []; }
+        const statusMap = GitService.parseNameStatus(nameStatusOutput);
+        return numstatOutput.trim().split('\n').map((line) => {
             const tab1 = line.indexOf('\t');
             const tab2 = line.indexOf('\t', tab1 + 1);
             const ins = line.slice(0, tab1);
@@ -689,6 +823,7 @@ export class GitService {
                 path: filePath,
                 insertions: ins === '-' ? -1 : parseInt(ins, 10),
                 deletions: del === '-' ? -1 : parseInt(del, 10),
+                status: statusMap.get(filePath) ?? '?',
             };
         });
     }

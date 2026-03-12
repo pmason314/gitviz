@@ -14,7 +14,8 @@ import { CommitsView } from './views/CommitsView';
 import { BranchesProvider } from './views/BranchesProvider';
 import { TagsProvider } from './views/TagsProvider';
 import { StashesProvider } from './views/StashesProvider';
-import { SearchCompareProvider } from './views/SearchCompareProvider';
+import { CompareView } from './views/CompareView';
+import { ComparePanel } from './webviews/ComparePanel';
 import { RevisionContentProvider, REVISION_SCHEME, makeRevisionUri } from './editors/RevisionContentProvider';
 import { CommitDetailsPanel } from './webviews/CommitDetailsPanel';
 import { FileHistoryEntry, HotFileEntry, StashInfo, BranchInfo, TagInfo } from './git/types';
@@ -76,7 +77,8 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const branchesProvider = new BranchesProvider(gitService);
     const tagsProvider = new TagsProvider(gitService);
     const stashesProvider = new StashesProvider(gitService);
-    const searchCompareProvider = new SearchCompareProvider(gitService);
+    const compareView = new CompareView(gitService, context.extensionUri);
+    const comparePanel = new ComparePanel(gitService);
     const revisionProvider = new RevisionContentProvider(gitService);
     const commitDetailsPanel = new CommitDetailsPanel(gitService);
 
@@ -94,7 +96,8 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         branchesProvider,
         tagsProvider,
         stashesProvider,
-        searchCompareProvider,
+        compareView,
+        comparePanel,
         revisionProvider,
         commitDetailsPanel,
         vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider),
@@ -106,14 +109,8 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         vscode.window.createTreeView('gitlite.branches',     { treeDataProvider: branchesProvider,     showCollapseAll: false }),
         vscode.window.createTreeView('gitlite.tags',         { treeDataProvider: tagsProvider,         showCollapseAll: false }),
         vscode.window.createTreeView('gitlite.stashes',      { treeDataProvider: stashesProvider,      showCollapseAll: false }),
+        vscode.window.registerWebviewViewProvider(CompareView.viewType, compareView),
     );
-
-    // Wire SearchCompare view reference (needed for description updates)
-    const searchCompareView = vscode.window.createTreeView('gitlite.searchCompare', {
-        treeDataProvider: searchCompareProvider,
-    });
-    searchCompareProvider.setView(searchCompareView);
-    context.subscriptions.push(searchCompareView);
 
     // Eagerly load Phase 3 views
     void branchesProvider.refresh();
@@ -456,19 +453,13 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         }),
 
         // ---------------------------------------------------------------------
-        // Phase 3 — Search & Compare view
+        // Phase 3 — Compare view
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitlite.searchCompare.search', () => {
-            void searchCompareProvider.promptSearch();
-        }),
-
-        vscode.commands.registerCommand('gitlite.searchCompare.compare', () => {
-            void searchCompareProvider.promptCompare();
-        }),
-
-        vscode.commands.registerCommand('gitlite.searchCompare.clear', () => {
-            searchCompareProvider.clearResults();
+        vscode.commands.registerCommand('gitlite.compare.run', async (ref1: string, ref2: string) => {
+            await comparePanel.show(ref1, ref2).catch((err: Error) => {
+                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+            });
         }),
     );
 }

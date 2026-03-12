@@ -12,9 +12,20 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["SCM Providers", "Other"],
-  "keywords": ["git", "blame", "gitlens", "history", "annotation"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "git",
+    "blame",
+    "gitlens",
+    "history",
+    "annotation"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -28,14 +39,41 @@
     },
     "views": {
       "gitlite": [
-        { "id": "gitlite.fileHistory",    "name": "File History" },
-        { "id": "gitlite.lineHistory",    "name": "Line History" },
-        { "id": "gitlite.hotFiles",       "name": "Hot Files", "type": "webview" },
-        { "id": "gitlite.commits",        "name": "Commits", "type": "webview" },
-        { "id": "gitlite.branches",       "name": "Branches" },
-        { "id": "gitlite.stashes",        "name": "Stashes" },
-        { "id": "gitlite.tags",           "name": "Tags" },
-        { "id": "gitlite.searchCompare",  "name": "Search & Compare" }
+        {
+          "id": "gitlite.fileHistory",
+          "name": "File History"
+        },
+        {
+          "id": "gitlite.lineHistory",
+          "name": "Line History"
+        },
+        {
+          "id": "gitlite.hotFiles",
+          "name": "Hot Files",
+          "type": "webview"
+        },
+        {
+          "id": "gitlite.commits",
+          "name": "Commits",
+          "type": "webview"
+        },
+        {
+          "id": "gitlite.branches",
+          "name": "Branches"
+        },
+        {
+          "id": "gitlite.stashes",
+          "name": "Stashes"
+        },
+        {
+          "id": "gitlite.tags",
+          "name": "Tags"
+        },
+        {
+          "id": "gitlite.searchCompare",
+          "name": "Compare",
+          "type": "webview"
+        }
       ]
     },
     "menus": {
@@ -104,21 +142,6 @@
           "command": "gitlite.stash.dropAll",
           "when": "view == gitlite.stashes",
           "group": "navigation@2"
-        },
-        {
-          "command": "gitlite.searchCompare.search",
-          "when": "view == gitlite.searchCompare",
-          "group": "navigation@1"
-        },
-        {
-          "command": "gitlite.searchCompare.compare",
-          "when": "view == gitlite.searchCompare",
-          "group": "navigation@2"
-        },
-        {
-          "command": "gitlite.searchCompare.clear",
-          "when": "view == gitlite.searchCompare",
-          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -149,7 +172,7 @@
         },
         {
           "command": "gitlite.copySha",
-          "when": "viewItem == commit && (view == gitlite.commits || view == gitlite.searchCompare)",
+          "when": "viewItem == commit && view == gitlite.commits",
           "group": "1_open@1"
         },
         {
@@ -259,22 +282,34 @@
       {
         "command": "gitlite.hotFiles.set7",
         "title": "Last 7 Days",
-        "icon": { "dark": "icons/tf-7d-dark.svg", "light": "icons/tf-7d-light.svg" }
+        "icon": {
+          "dark": "icons/tf-7d-dark.svg",
+          "light": "icons/tf-7d-light.svg"
+        }
       },
       {
         "command": "gitlite.hotFiles.set30",
         "title": "Last 30 Days",
-        "icon": { "dark": "icons/tf-30d-dark.svg", "light": "icons/tf-30d-light.svg" }
+        "icon": {
+          "dark": "icons/tf-30d-dark.svg",
+          "light": "icons/tf-30d-light.svg"
+        }
       },
       {
         "command": "gitlite.hotFiles.set90",
         "title": "Last 90 Days",
-        "icon": { "dark": "icons/tf-90d-dark.svg", "light": "icons/tf-90d-light.svg" }
+        "icon": {
+          "dark": "icons/tf-90d-dark.svg",
+          "light": "icons/tf-90d-light.svg"
+        }
       },
       {
         "command": "gitlite.hotFiles.setAll",
         "title": "All Time",
-        "icon": { "dark": "icons/tf-all-dark.svg", "light": "icons/tf-all-light.svg" }
+        "icon": {
+          "dark": "icons/tf-all-dark.svg",
+          "light": "icons/tf-all-light.svg"
+        }
       },
       {
         "command": "gitlite.hotFiles.hideDeleted",
@@ -366,36 +401,37 @@
         "icon": "$(trash)"
       },
       {
-        "command": "gitlite.searchCompare.search",
-        "title": "GitLite: Search Commits",
-        "icon": "$(search)"
-      },
-      {
-        "command": "gitlite.searchCompare.compare",
-        "title": "GitLite: Compare Refs",
-        "icon": "$(git-compare)"
-      },
-      {
-        "command": "gitlite.searchCompare.clear",
-        "title": "GitLite: Clear Results",
-        "icon": "$(close)"
+        "command": "gitlite.compare.run",
+        "title": "GitLite: Compare Refs"
       }
     ],
     "colors": [
       {
         "id": "gitlite.hotFile.heatHigh",
         "description": "Color for the most frequently changed files in the Hot Files view.",
-        "defaults": { "dark": "#b8784e", "light": "#9e5c38", "highContrast": "#ff6600" }
+        "defaults": {
+          "dark": "#b8784e",
+          "light": "#9e5c38",
+          "highContrast": "#ff6600"
+        }
       },
       {
         "id": "gitlite.hotFile.heatMedium",
         "description": "Color for moderately changed files in the Hot Files view.",
-        "defaults": { "dark": "#9e8a42", "light": "#7a6a28", "highContrast": "#ddaa00" }
+        "defaults": {
+          "dark": "#9e8a42",
+          "light": "#7a6a28",
+          "highContrast": "#ddaa00"
+        }
       },
       {
         "id": "gitlite.hotFile.heatLow",
         "description": "Color for less frequently changed files in the Hot Files view.",
-        "defaults": { "dark": "#4488bb", "light": "#2266aa", "highContrast": "#4499cc" }
+        "defaults": {
+          "dark": "#4488bb",
+          "light": "#2266aa",
+          "highContrast": "#4499cc"
+        }
       }
     ],
     "configuration": {
@@ -413,7 +449,11 @@
         },
         "gitlite.blame.dateFormat": {
           "type": "string",
-          "enum": ["relative", "absolute", "iso"],
+          "enum": [
+            "relative",
+            "absolute",
+            "iso"
+          ],
           "default": "relative",
           "description": "Date format for blame annotations."
         },
@@ -454,7 +494,10 @@
         },
         "gitlite.views.defaultLocation": {
           "type": "string",
-          "enum": ["gitlite", "scm"],
+          "enum": [
+            "gitlite",
+            "scm"
+          ],
           "default": "gitlite",
           "description": "Where to show GitLite views: in its own activity bar panel or in the Source Control panel."
         }
@@ -469,11 +512,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@vscode/codicons": "^0.0.44",
     "simple-git": "^3.27.0"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
     "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
     "@vscode/test-electron": "^2.4.0",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.24.0",

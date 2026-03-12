@@ -97,9 +97,10 @@ function buildHtml(commit: CommitInfo, files: CommitFileEntry[], highlightRelPat
         const insColor = f.insertions > 0 ? '#3fb950' : 'var(--vscode-descriptionForeground)';
         const delColor = f.deletions > 0 ? '#f85149' : 'var(--vscode-descriptionForeground)';
         const isHighlighted = highlightRelPath && f.path === highlightRelPath;
+        const badge = (f.status && f.status !== '?') ? `<span class="status-badge status-${f.status}">${f.status}</span>` : '<span class="status-badge"></span>';
 
         return `<div class="file${isHighlighted ? ' file--active' : ''}" data-path="${escHtml(f.path)}" onclick="openDiff(this.dataset.path)">
-  <span class="file-name">${escHtml(f.path)}</span>
+  ${badge}<span class="file-name">${escHtml(f.path)}</span>
   <span class="stats">
     <span style="color:${insColor}">${ins}</span>${del ? ` <span style="color:${delColor}">${del}</span>` : ''}
   </span>
@@ -146,6 +147,12 @@ function buildHtml(commit: CommitInfo, files: CommitFileEntry[], highlightRelPat
     .file--active:hover { background: var(--vscode-list-hoverBackground); }
     .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .stats { white-space: nowrap; font-size: 0.9em; }
+    .status-badge { display: inline-block; width: 14px; text-align: center; font-weight: 700; font-size: 0.8em; flex-shrink: 0; }
+    .status-A { color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950); }
+    .status-M { color: var(--vscode-gitDecoration-modifiedResourceForeground, #e3b341); }
+    .status-D { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
+    .status-R { color: var(--vscode-gitDecoration-renamedResourceForeground, #73c991); }
+    .status-C { color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950); }
   </style>
 </head>
 <body>
