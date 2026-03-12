@@ -14,11 +14,12 @@ import { CommitsView } from './views/CommitsView';
 import { BranchesProvider } from './views/BranchesProvider';
 import { TagsProvider } from './views/TagsProvider';
 import { StashesProvider } from './views/StashesProvider';
+import { WorktreesProvider } from './views/WorktreesProvider';
 import { CompareView } from './views/CompareView';
 import { ComparePanel } from './webviews/ComparePanel';
 import { RevisionContentProvider, REVISION_SCHEME, makeRevisionUri } from './editors/RevisionContentProvider';
 import { CommitDetailsPanel } from './webviews/CommitDetailsPanel';
-import { FileHistoryEntry, HotFileEntry, StashInfo, BranchInfo, TagInfo } from './git/types';
+import { FileHistoryEntry, HotFileEntry, StashInfo, BranchInfo, TagInfo, WorktreeInfo } from './git/types';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const repoRoot = await detectRepoRoot();
@@ -77,6 +78,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const branchesProvider = new BranchesProvider(gitService);
     const tagsProvider = new TagsProvider(gitService);
     const stashesProvider = new StashesProvider(gitService);
+    const worktreesProvider = new WorktreesProvider(gitService);
     const compareView = new CompareView(gitService, context.extensionUri);
     const comparePanel = new ComparePanel(gitService);
     const revisionProvider = new RevisionContentProvider(gitService);
@@ -96,6 +98,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         branchesProvider,
         tagsProvider,
         stashesProvider,
+        worktreesProvider,
         compareView,
         comparePanel,
         revisionProvider,
@@ -109,6 +112,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         vscode.window.createTreeView('gitlite.branches',     { treeDataProvider: branchesProvider,     showCollapseAll: false }),
         vscode.window.createTreeView('gitlite.tags',         { treeDataProvider: tagsProvider,         showCollapseAll: false }),
         vscode.window.createTreeView('gitlite.stashes',      { treeDataProvider: stashesProvider,      showCollapseAll: false }),
+        vscode.window.createTreeView('gitlite.worktrees',     { treeDataProvider: worktreesProvider,     showCollapseAll: false }),
         vscode.window.registerWebviewViewProvider(CompareView.viewType, compareView),
     );
 
@@ -116,6 +120,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     void branchesProvider.refresh();
     void tagsProvider.refresh();
     void stashesProvider.refresh();
+    void worktreesProvider.refresh();
 
     // -------------------------------------------------------------------------
     // Watch .git directory for local state changes and auto-refresh views
@@ -124,12 +129,14 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         const gitDir = vscode.Uri.file(gitService.getRepoRoot() + '/.git');
 
         // Debounce helpers — coalesces rapid multi-file changes (e.g. during checkout)
-        let branchTimer: ReturnType<typeof setTimeout> | undefined;
-        let tagTimer:    ReturnType<typeof setTimeout> | undefined;
-        let stashTimer:  ReturnType<typeof setTimeout> | undefined;
-        const debounceBranches = () => { clearTimeout(branchTimer); branchTimer = setTimeout(() => void branchesProvider.refresh(), 300); };
-        const debounceTags     = () => { clearTimeout(tagTimer);    tagTimer    = setTimeout(() => void tagsProvider.refresh(),    300); };
-        const debounceStashes  = () => { clearTimeout(stashTimer);  stashTimer  = setTimeout(() => void stashesProvider.refresh(), 300); };
+        let branchTimer:    ReturnType<typeof setTimeout> | undefined;
+        let tagTimer:       ReturnType<typeof setTimeout> | undefined;
+        let stashTimer:     ReturnType<typeof setTimeout> | undefined;
+        let worktreeTimer:  ReturnType<typeof setTimeout> | undefined;
+        const debounceBranches  = () => { clearTimeout(branchTimer);   branchTimer   = setTimeout(() => void branchesProvider.refresh(),  300); };
+        const debounceTags      = () => { clearTimeout(tagTimer);       tagTimer      = setTimeout(() => void tagsProvider.refresh(),     300); };
+        const debounceStashes   = () => { clearTimeout(stashTimer);     stashTimer    = setTimeout(() => void stashesProvider.refresh(),  300); };
+        const debounceWorktrees = () => { clearTimeout(worktreeTimer);  worktreeTimer = setTimeout(() => void worktreesProvider.refresh(), 300); };
 
         // HEAD changes on checkout
         const watchHead = vscode.workspace.createFileSystemWatcher(
@@ -146,6 +153,15 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // stash
         const watchStash = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(gitDir, 'refs/stash'));
+        // worktrees — structural (add/remove)
+        const watchWorktrees = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(gitDir, 'worktrees/**'));
+        // main worktree index — staged/unstaged changes
+        const watchMainIndex = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(gitDir, 'index'));
+        // linked worktree indices — staged/unstaged changes in other worktrees
+        const watchLinkedIndex = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(gitDir, 'worktrees/*/index'));
 
         for (const w of [watchHead, watchRefs]) {
             w.onDidCreate(debounceBranches);
@@ -164,9 +180,28 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             w.onDidChange(debounceStashes);
             w.onDidDelete(debounceStashes);
         }
+        for (const w of [watchWorktrees]) {
+            w.onDidCreate(debounceWorktrees);
+            w.onDidChange(debounceWorktrees);
+            w.onDidDelete(debounceWorktrees);
+        }
+        for (const w of [watchMainIndex, watchLinkedIndex]) {
+            w.onDidCreate(debounceWorktrees);
+            w.onDidChange(debounceWorktrees);
+            w.onDidDelete(debounceWorktrees);
+        }
 
-        context.subscriptions.push(watchHead, watchRefs, watchPacked, watchTags, watchStash);
+        context.subscriptions.push(watchHead, watchRefs, watchPacked, watchTags, watchStash, watchWorktrees, watchMainIndex, watchLinkedIndex);
     }
+
+    // -------------------------------------------------------------------------
+    // Refresh worktree status when VS Code regains focus (catches external changes)
+    // -------------------------------------------------------------------------
+    context.subscriptions.push(
+        vscode.window.onDidChangeWindowState(e => {
+            if (e.focused) { worktreesProvider.refresh(); }
+        })
+    );
 
     // -------------------------------------------------------------------------
     // Subscribe to save events — invalidate cache and refresh all annotations
@@ -463,6 +498,91 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             await comparePanel.show(ref1, ref2).catch((err: Error) => {
                 vscode.window.showErrorMessage(`GitLite: ${err.message}`);
             });
+        }),
+
+        // ---------------------------------------------------------------------
+        // Phase 4 — Worktrees
+        // ---------------------------------------------------------------------
+
+        vscode.commands.registerCommand('gitlite.worktree.open', (node: WorktreeInfo) => {
+            void vscode.commands.executeCommand(
+                'vscode.openFolder',
+                vscode.Uri.file(node.path),
+                { forceNewWindow: true },
+            );
+        }),
+
+        vscode.commands.registerCommand('gitlite.worktree.create', async () => {
+            const branches = await gitService.getBranches();
+            const NEW_BRANCH = '$(add) Create new branch…';
+            const items: vscode.QuickPickItem[] = [
+                { label: NEW_BRANCH, description: '' },
+                ...branches.map(b => ({
+                    label: b.name,
+                    description: b.sha.slice(0, 7),
+                    detail: b.subject,
+                })),
+            ];
+            const picked = await vscode.window.showQuickPick(items, {
+                title: 'Worktree: Select Branch',
+                placeHolder: 'Choose an existing branch or create a new one…',
+                matchOnDescription: true,
+            });
+            if (!picked) { return; }
+
+            let branch: string;
+            if (picked.label === NEW_BRANCH) {
+                const newName = await vscode.window.showInputBox({
+                    title: 'Worktree: New Branch Name',
+                    placeHolder: 'e.g. feature/my-feature',
+                    validateInput: v => v.trim() ? null : 'Branch name cannot be empty',
+                });
+                if (!newName) { return; }
+                branch = newName.trim();
+            } else {
+                branch = picked.label;
+            }
+
+            const repoRoot = gitService.getRepoRoot();
+            const safeName = branch.replace(/[\/\\:*?"<>|]/g, '-');
+            const suggested = path.join(path.dirname(repoRoot), path.basename(repoRoot) + '-' + safeName);
+            const dirPath = await vscode.window.showInputBox({
+                title: 'Worktree: Directory Path',
+                value: suggested,
+                prompt: 'Path for the new worktree directory',
+                validateInput: v => v.trim() ? null : 'Directory path cannot be empty',
+            });
+            if (!dirPath) { return; }
+
+            const isNew = picked.label === NEW_BRANCH;
+            try {
+                await gitService.addWorktree(dirPath.trim(), branch, isNew);
+                void worktreesProvider.refresh();
+                vscode.window.showInformationMessage(`GitLite: Worktree “${branch}” created at ${dirPath.trim()}.`);
+            } catch (err) {
+                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+            }
+        }),
+
+        vscode.commands.registerCommand('gitlite.worktree.delete', async (node: WorktreeInfo) => {
+            if (!node?.path) { return; }
+            const branchLabel = node.branch.replace(/^refs\/heads\//, '') || '(detached)';
+            const isDirty = node.staged > 0 || node.unstaged > 0;
+            const detail = isDirty
+                ? `This worktree has uncommitted changes (+${node.staged} staged, ~${node.unstaged} unstaged). All uncommitted work will be lost.`
+                : undefined;
+            const answer = await vscode.window.showWarningMessage(
+                `Delete worktree “${branchLabel}” at ${node.path}?`,
+                { modal: true, detail },
+                'Delete',
+            );
+            if (answer !== 'Delete') { return; }
+            try {
+                await gitService.removeWorktree(node.path, isDirty);
+                void worktreesProvider.refresh();
+            } catch (err) {
+                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+            }
         }),
     );
 }

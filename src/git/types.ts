@@ -92,6 +92,21 @@ export interface StashInfo {
     relativeDate: string;
 }
 
+export interface WorktreeInfo {
+    /** Absolute filesystem path of the worktree. */
+    path: string;
+    /** Full commit SHA that HEAD points to. Empty for a bare worktree. */
+    head: string;
+    /** Full ref name, e.g. "refs/heads/main". Empty for detached HEAD or bare. */
+    branch: string;
+    /** True for a bare worktree. */
+    isBare: boolean;
+    /** Number of staged (index) changes. */
+    staged: number;
+    /** Number of unstaged + untracked changes. */
+    unstaged: number;
+}
+
 export interface ContributorInfo {
     name: string;
     email: string;

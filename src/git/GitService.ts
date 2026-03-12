@@ -5,6 +5,7 @@ import { CommitCache } from './CommitCache';
 import {
     BlameInfo, CommitInfo, FileHistoryEntry, CommitFileEntry, HotFileEntry,
     BranchInfo, RemoteInfo, RemoteBranchInfo, TagInfo, StashInfo, ContributorInfo, CommitEntry, RefItem,
+    WorktreeInfo,
 } from './types';
 
 const MAX_CONCURRENCY = 3;
@@ -472,8 +473,94 @@ export class GitService {
     }
 
     // =========================================================================
+    // Phase 4 — Worktrees (public API)
+    // =========================================================================
+
+    /** Return all worktrees with staged/unstaged change counts. */
+    async getWorktrees(): Promise<WorktreeInfo[]> {
+        return this.run(() => this.fetchWorktrees());
+    }
+
+    /** Add a new worktree at dirPath checked out to branch. Pass createBranch=true to create a new branch. */
+    async addWorktree(dirPath: string, branch: string, createBranch: boolean): Promise<void> {
+        const args = ['worktree', 'add'];
+        if (createBranch) {
+            args.push('-b', branch, dirPath);
+        } else {
+            args.push(dirPath, branch);
+        }
+        await this.run(() => this.git.raw(args));
+    }
+
+    /** Remove a worktree. Pass force=true to remove even if there are uncommitted changes. */
+    async removeWorktree(dirPath: string, force = false): Promise<void> {
+        const args = ['worktree', 'remove'];
+        if (force) { args.push('--force'); }
+        args.push(dirPath);
+        await this.run(() => this.git.raw(args));
+    }
+
+    // =========================================================================
     // Phase 3 — private fetch helpers
     // =========================================================================
+
+    // =========================================================================
+    // Phase 4 — Worktrees (private helpers)
+    // =========================================================================
+
+    private async fetchWorktrees(): Promise<WorktreeInfo[]> {
+        let output: string;
+        try {
+            output = await this.git.raw(['worktree', 'list', '--porcelain']);
+        } catch {
+            return [];
+        }
+        if (!output.trim()) { return []; }
+
+        // Each worktree is a blank-line-separated stanza
+        const bare: Array<Omit<WorktreeInfo, 'staged' | 'unstaged'>> = [];
+        for (const stanza of output.trim().split(/\n\n+/)) {
+            let wtPath = '';
+            let head = '';
+            let branch = '';
+            let isBare = false;
+            for (const line of stanza.trim().split('\n')) {
+                if (line.startsWith('worktree '))    { wtPath  = line.slice(9).trim(); }
+                else if (line.startsWith('HEAD '))   { head    = line.slice(5).trim(); }
+                else if (line.startsWith('branch ')) { branch  = line.slice(7).trim(); }
+                else if (line === 'bare')             { isBare  = true; }
+            }
+            if (wtPath) { bare.push({ path: wtPath, head, branch, isBare }); }
+        }
+
+        const statusResults = await Promise.all(
+            bare.map(wt => this.fetchWorktreeStatus(wt.path, wt.isBare))
+        );
+        return bare.map((wt, i) => ({ ...wt, ...statusResults[i] }));
+    }
+
+    private async fetchWorktreeStatus(
+        worktreePath: string,
+        isBare: boolean,
+    ): Promise<{ staged: number; unstaged: number }> {
+        if (isBare) { return { staged: 0, unstaged: 0 }; }
+        let output: string;
+        try {
+            output = await this.git.raw(['-C', worktreePath, 'status', '--porcelain=v1']);
+        } catch {
+            return { staged: 0, unstaged: 0 };
+        }
+        let staged = 0;
+        let unstaged = 0;
+        for (const line of output.split('\n')) {
+            if (line.length < 2) { continue; }
+            const x = line[0]; // index column
+            const y = line[1]; // worktree column
+            if (x !== ' ' && x !== '?') { staged++; }
+            if (y !== ' ') { unstaged++; }
+        }
+        return { staged, unstaged };
+    }
 
     private async fetchBranches(): Promise<BranchInfo[]> {
         const SEP = '\x1f';

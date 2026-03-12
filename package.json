@@ -58,21 +58,29 @@
           "type": "webview"
         },
         {
-          "id": "gitlite.branches",
-          "name": "Branches"
-        },
-        {
-          "id": "gitlite.stashes",
-          "name": "Stashes"
-        },
-        {
-          "id": "gitlite.tags",
-          "name": "Tags"
-        },
-        {
           "id": "gitlite.searchCompare",
           "name": "Compare",
           "type": "webview"
+        },
+        {
+          "id": "gitlite.stashes",
+          "name": "Stashes",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "gitlite.branches",
+          "name": "Branches",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "gitlite.worktrees",
+          "name": "Worktrees",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "gitlite.tags",
+          "name": "Tags",
+          "visibility": "collapsed"
         }
       ]
     },
@@ -142,6 +150,11 @@
           "command": "gitlite.stash.dropAll",
           "when": "view == gitlite.stashes",
           "group": "navigation@2"
+        },
+        {
+          "command": "gitlite.worktree.create",
+          "when": "view == gitlite.worktrees",
+          "group": "navigation@1"
         }
       ],
       "view/item/context": [
@@ -233,6 +246,21 @@
         {
           "command": "gitlite.stash.dropEntry",
           "when": "viewItem == stash && view == gitlite.stashes",
+          "group": "2_destructive@1"
+        },
+        {
+          "command": "gitlite.worktree.open",
+          "when": "viewItem == worktree && view == gitlite.worktrees",
+          "group": "1_worktree@1"
+        },
+        {
+          "command": "gitlite.worktree.delete",
+          "when": "viewItem == worktree && view == gitlite.worktrees",
+          "group": "inline"
+        },
+        {
+          "command": "gitlite.worktree.delete",
+          "when": "viewItem == worktree && view == gitlite.worktrees",
           "group": "2_destructive@1"
         }
       ]
@@ -403,6 +431,21 @@
       {
         "command": "gitlite.compare.run",
         "title": "GitLite: Compare Refs"
+      },
+      {
+        "command": "gitlite.worktree.create",
+        "title": "Create Worktree",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitlite.worktree.open",
+        "title": "Open in New Window",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "gitlite.worktree.delete",
+        "title": "Delete Worktree",
+        "icon": "$(trash)"
       }
     ],
     "colors": [
