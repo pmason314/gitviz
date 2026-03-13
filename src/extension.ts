@@ -296,6 +296,30 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             terminal.sendText(`git rebase -i ${base}`);
         }),
 
+        vscode.commands.registerCommand('gitlite.revertCommit', async () => {
+            const commits = await gitService.getCommitsOnBranch(undefined, 50);
+            const items = commits.map(c => ({
+                label: `$(git-commit) ${c.sha.slice(0, 7)}`,
+                description: c.relativeDate,
+                detail: `${c.author}: ${c.message}`,
+                sha: c.sha,
+            }));
+            const picked = await vscode.window.showQuickPick(items, {
+                title: 'GitLite: Revert Commit',
+                placeHolder: 'Select a commit to revert…',
+                matchOnDescription: true,
+                matchOnDetail: true,
+            });
+            if (!picked) { return; }
+            try {
+                await gitService.revertCommit(picked.sha);
+                await vscode.commands.executeCommand('gitlite.refreshAll');
+                vscode.window.showInformationMessage(`GitLite: Reverted ${picked.sha.slice(0, 7)}.`);
+            } catch (err) {
+                vscode.window.showErrorMessage(`GitLite: Revert failed — ${(err as Error).message}`);
+            }
+        }),
+
         // Internal helper: refresh commits + branches + worktrees (used after mutating git operations)
         vscode.commands.registerCommand('gitlite.refreshAll', async () => {
             await Promise.all([

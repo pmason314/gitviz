@@ -1018,6 +1018,11 @@ export class GitService {
         await this.run(() => this.git.raw(['cherry-pick', sha]));
     }
 
+    /** Create a revert commit for the given SHA (no editor, no interactive prompt). */
+    async revertCommit(sha: string): Promise<void> {
+        await this.run(() => this.git.raw(['revert', '--no-edit', sha]));
+    }
+
     /** Reset the current branch to sha with the given mode. */
     async resetToCommit(sha: string, mode: 'soft' | 'mixed' | 'hard'): Promise<void> {
         await this.run(() => this.git.reset([`--${mode}`, sha]));

@@ -24,9 +24,7 @@
     "annotation"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCustomEditor:gitlite.rebaseEditor",
-    "onCustomEditor:gitlite.commitMessageEditor"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -63,56 +61,70 @@
       "gitlite": [
         {
           "id": "gitlite.fileHistory",
-          "name": "File History"
+          "name": "File History",
+          "icon": "$(history)"
         },
         {
           "id": "gitlite.lineHistory",
-          "name": "Line History"
+          "name": "Line History",
+          "icon": "$(list-ordered)"
         },
         {
           "id": "gitlite.hotFiles",
           "name": "Hot Files",
-          "type": "webview"
+          "type": "webview",
+          "icon": "$(graph)"
         },
         {
           "id": "gitlite.commits",
           "name": "Commits",
-          "type": "webview"
+          "type": "webview",
+          "icon": "$(git-commit)"
         },
         {
           "id": "gitlite.searchCompare",
           "name": "Compare",
-          "type": "webview"
+          "type": "webview",
+          "icon": "$(diff)"
         },
         {
           "id": "gitlite.stashes",
           "name": "Stashes",
-          "visibility": "collapsed"
+          "visibility": "collapsed",
+          "icon": "$(archive)"
         },
         {
           "id": "gitlite.branches",
           "name": "Branches",
-          "visibility": "collapsed"
+          "visibility": "collapsed",
+          "icon": "$(git-branch)"
         },
         {
           "id": "gitlite.worktrees",
           "name": "Worktrees",
-          "visibility": "collapsed"
+          "visibility": "collapsed",
+          "icon": "$(files)"
         },
         {
           "id": "gitlite.tags",
           "name": "Tags",
-          "visibility": "collapsed"
+          "visibility": "collapsed",
+          "icon": "$(tag)"
         }
       ]
     },
     "menus": {
-      "view/title": [
+      "commandPalette": [
         {
-          "command": "gitlite.openLineHistory",
-          "when": "view == gitlite.lineHistory",
-          "group": "navigation"
+          "command": "gitlite.tag.create",
+          "when": "false"
         },
+        {
+          "command": "gitlite.compare.run",
+          "when": "false"
+        }
+      ],
+      "view/title": [
         {
           "command": "gitlite.hotFiles.set7",
           "when": "view == gitlite.hotFiles",
@@ -312,6 +324,10 @@
       {
         "command": "gitlite.startInteractiveRebase",
         "title": "GitLite: Start Interactive Rebase"
+      },
+      {
+        "command": "gitlite.revertCommit",
+        "title": "GitLite: Revert Commit"
       },
       {
         "command": "gitlite.diffWithPrevious",
