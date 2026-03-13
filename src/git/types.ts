@@ -121,6 +121,31 @@ export interface CommitEntry {
     message: string;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 4b — Commit Graph
+// ---------------------------------------------------------------------------
+
+/** One commit node in the commit graph, including parent SHAs for DAG edges. */
+export interface CommitGraphEntry {
+    sha: string;
+    /** Full SHAs of parent commits (empty for root commits, two+ for merges). */
+    parents: string[];
+    author: string;
+    date: Date;
+    relativeDate: string;
+    message: string;
+}
+
+/** A ref (branch, remote-tracking branch, tag, or HEAD) positioned on a graph node. */
+export interface GraphRef {
+    sha: string;
+    /** Human-readable short name, e.g. "main", "origin/main", "v1.0" */
+    name: string;
+    type: 'branch' | 'remote' | 'tag' | 'HEAD';
+    /** True only for the currently checked-out branch. */
+    isCurrent?: boolean;
+}
+
 /**
  * A ref option surfaced in the Compare view's QuickPick picker.
  * Shape is a superset of vscode.QuickPickItem so it works directly with showQuickPick.

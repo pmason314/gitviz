@@ -19,6 +19,7 @@ import { CompareView } from './views/CompareView';
 import { ComparePanel } from './webviews/ComparePanel';
 import { RevisionContentProvider, REVISION_SCHEME, makeRevisionUri } from './editors/RevisionContentProvider';
 import { CommitDetailsPanel } from './webviews/CommitDetailsPanel';
+import { CommitGraphPanel } from './webviews/CommitGraphPanel';
 import { FileHistoryEntry, HotFileEntry, StashInfo, BranchInfo, TagInfo, WorktreeInfo } from './git/types';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -83,6 +84,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const comparePanel = new ComparePanel(gitService);
     const revisionProvider = new RevisionContentProvider(gitService);
     const commitDetailsPanel = new CommitDetailsPanel(gitService);
+    const commitGraphPanel   = CommitGraphPanel.getInstance(gitService);
 
     // -------------------------------------------------------------------------
     // Register providers
@@ -103,6 +105,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         comparePanel,
         revisionProvider,
         commitDetailsPanel,
+        commitGraphPanel,
         vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider),
         vscode.window.registerTreeDataProvider('gitlite.fileHistory', fileHistoryProvider),
         vscode.window.registerTreeDataProvider('gitlite.lineHistory', lineHistoryProvider),
@@ -250,6 +253,21 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
                     vscode.window.showErrorMessage(`GitLite: ${err.message}`);
                 });
             }
+        }),
+
+        vscode.commands.registerCommand('gitlite.openCommitGraph', async (sha?: string) => {
+            await commitGraphPanel.open(sha).catch((err: Error) => {
+                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+            });
+        }),
+
+        // Internal helper: refresh commits + branches + worktrees (used after mutating git operations)
+        vscode.commands.registerCommand('gitlite.refreshAll', async () => {
+            await Promise.all([
+                commitsView.refresh(),
+                branchesProvider.refresh(),
+                worktreesProvider.refresh(),
+            ]);
         }),
 
         vscode.commands.registerCommand('gitlite.diffWithPrevious', async (args?: { sha: string; filePath: string }) => {

@@ -283,6 +283,11 @@
         "title": "GitLite: Open Commit Details"
       },
       {
+        "command": "gitlite.openCommitGraph",
+        "title": "GitLite: Open Commit Graph",
+        "icon": "$(type-hierarchy)"
+      },
+      {
         "command": "gitlite.diffWithPrevious",
         "title": "GitLite: Diff with Previous Commit"
       },

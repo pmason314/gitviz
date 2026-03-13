@@ -5,7 +5,7 @@ import { CommitCache } from './CommitCache';
 import {
     BlameInfo, CommitInfo, FileHistoryEntry, CommitFileEntry, HotFileEntry,
     BranchInfo, RemoteInfo, RemoteBranchInfo, TagInfo, StashInfo, ContributorInfo, CommitEntry, RefItem,
-    WorktreeInfo,
+    WorktreeInfo, CommitGraphEntry, GraphRef,
 } from './types';
 
 const MAX_CONCURRENCY = 3;
@@ -981,6 +981,188 @@ export class GitService {
                 }
                 return { path: filePath, count, topAuthor };
             });
+    }
+
+    // =========================================================================
+    // Phase 4b — Commit Graph (public API)
+    // =========================================================================
+
+    /**
+     * Return commits for the graph across all local branches and their upstream remotes,
+     * in topological order. Supports pagination via offset.
+     */
+    async getCommitGraph(limit = 500, offset = 0): Promise<CommitGraphEntry[]> {
+        return this.run(() => this.fetchCommitGraph(limit, offset));
+    }
+
+    /**
+     * Return refs (branches, remote-tracking branches for configured upstreams, tags, HEAD)
+     * keyed by commit SHA, for rendering labels on graph nodes.
+     */
+    async getGraphRefs(): Promise<GraphRef[]> {
+        return this.run(() => this.fetchGraphRefs());
+    }
+
+    /** Checkout a branch name or detach HEAD at a SHA. */
+    async checkoutRef(ref: string): Promise<void> {
+        await this.run(() => this.git.checkout(ref));
+    }
+
+    /** Create a new branch at sha and check it out. */
+    async createBranchFrom(sha: string, name: string): Promise<void> {
+        await this.run(() => this.git.checkoutBranch(name, sha));
+    }
+
+    /** Cherry-pick a single commit onto HEAD. */
+    async cherryPick(sha: string): Promise<void> {
+        await this.run(() => this.git.raw(['cherry-pick', sha]));
+    }
+
+    /** Reset the current branch to sha with the given mode. */
+    async resetToCommit(sha: string, mode: 'soft' | 'mixed' | 'hard'): Promise<void> {
+        await this.run(() => this.git.reset([`--${mode}`, sha]));
+    }
+
+    // =========================================================================
+    // Phase 4b — Commit Graph (private helpers)
+    // =========================================================================
+
+    private async fetchCommitGraph(limit: number, offset: number): Promise<CommitGraphEntry[]> {
+        const SEP = '\x1f';
+
+        // Collect all local branches + their upstream refs to pass to git log
+        let refOutput = '';
+        try {
+            refOutput = await this.git.raw([
+                'for-each-ref',
+                `--format=%(refname:short)${SEP}%(upstream:short)`,
+                'refs/heads',
+            ]);
+        } catch { /* graceful — fall back to HEAD only */ }
+
+        const refs = new Set<string>();
+        for (const line of refOutput.trim().split('\n')) {
+            if (!line.trim()) { continue; }
+            const [local, upstream] = line.split(SEP);
+            if (local?.trim()) { refs.add(local.trim()); }
+            if (upstream?.trim()) { refs.add(upstream.trim()); }
+        }
+        if (refs.size === 0) { refs.add('HEAD'); }
+
+        const args = [
+            'log',
+            '--topo-order',
+            `--format=%H${SEP}%P${SEP}%an${SEP}%aI${SEP}%ar${SEP}%s`,
+            `-n${limit}`,
+            `--skip=${offset}`,
+            ...Array.from(refs),
+        ];
+
+        let output = '';
+        try {
+            output = await this.git.raw(args);
+        } catch {
+            return [];
+        }
+        if (!output.trim()) { return []; }
+
+        return output.trim().split('\n')
+            .filter(line => /^[0-9a-f]{40}\x1f/i.test(line))
+            .map((line) => {
+                const [sha, parentsRaw, authorName, dateIso, relativeDate, ...msgParts] = line.split(SEP);
+                const parents = parentsRaw.trim() ? parentsRaw.trim().split(' ') : [];
+                return {
+                    sha: sha.trim(),
+                    parents,
+                    author: authorName.trim(),
+                    date: new Date(dateIso.trim()),
+                    relativeDate: relativeDate.trim(),
+                    message: msgParts.join(SEP).trim(),
+                };
+            });
+    }
+
+    private async fetchGraphRefs(): Promise<GraphRef[]> {
+        const SEP = '\x1f';
+        const refs: GraphRef[] = [];
+
+        // Collect upstream names so we know which remote refs to include
+        let upstreams = new Set<string>();
+        try {
+            const upstreamOutput = await this.git.raw([
+                'for-each-ref',
+                `--format=%(upstream:short)`,
+                'refs/heads',
+            ]);
+            for (const line of upstreamOutput.trim().split('\n')) {
+                const u = line.trim();
+                if (u) { upstreams.add(u); }
+            }
+        } catch { /* ignore */ }
+
+        // Local branches
+        try {
+            const branchOutput = await this.git.raw([
+                'for-each-ref',
+                `--format=%(HEAD)${SEP}%(refname:short)${SEP}%(objectname)`,
+                'refs/heads',
+            ]);
+            for (const line of branchOutput.trim().split('\n')) {
+                if (!line.trim()) { continue; }
+                const [head, name, sha] = line.split(SEP);
+                if (!name?.trim() || !sha?.trim()) { continue; }
+                refs.push({ sha: sha.trim(), name: name.trim(), type: 'branch', isCurrent: head.trim() === '*' });
+            }
+        } catch { /* ignore */ }
+
+        // Remote-tracking branches — only upstreams of local branches
+        if (upstreams.size > 0) {
+            try {
+                const remoteOutput = await this.git.raw([
+                    'for-each-ref',
+                    `--format=%(refname:short)${SEP}%(objectname)`,
+                    'refs/remotes',
+                ]);
+                for (const line of remoteOutput.trim().split('\n')) {
+                    if (!line.trim()) { continue; }
+                    const [name, sha] = line.split(SEP);
+                    const n = name?.trim();
+                    if (!n || !sha?.trim() || n.endsWith('/HEAD')) { continue; }
+                    if (upstreams.has(n)) {
+                        refs.push({ sha: sha.trim(), name: n, type: 'remote' });
+                    }
+                }
+            } catch { /* ignore */ }
+        }
+
+        // Tags
+        try {
+            const tagOutput = await this.git.raw([
+                'for-each-ref',
+                `--format=%(refname:short)${SEP}%(*objectname)${SEP}%(objectname)`,
+                'refs/tags',
+            ]);
+            for (const line of tagOutput.trim().split('\n')) {
+                if (!line.trim()) { continue; }
+                const [name, derefSha, ownSha] = line.split(SEP);
+                if (!name?.trim()) { continue; }
+                const sha = derefSha?.trim() || ownSha?.trim();
+                if (!sha) { continue; }
+                refs.push({ sha, name: name.trim(), type: 'tag' });
+            }
+        } catch { /* ignore */ }
+
+        // HEAD (detached state marker) — only add if no branch already marks it as current
+        try {
+            const headSha = (await this.git.raw(['rev-parse', 'HEAD'])).trim();
+            const headRef = (await this.git.raw(['symbolic-ref', '--short', 'HEAD']).catch(() => '')).trim();
+            if (!headRef) {
+                // detached HEAD
+                refs.push({ sha: headSha, name: 'HEAD', type: 'HEAD', isCurrent: true });
+            }
+        } catch { /* ignore */ }
+
+        return refs;
     }
 }
 

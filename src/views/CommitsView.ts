@@ -43,6 +43,11 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
                         await vscode.commands.executeCommand('gitlite.openCommitDetails', msg.sha);
                     }
                     break;
+                case 'openGraph':
+                    if (msg.sha) {
+                        await vscode.commands.executeCommand('gitlite.openCommitGraph', msg.sha);
+                    }
+                    break;
                 case 'copySha':
                     if (msg.sha) {
                         await vscode.env.clipboard.writeText(msg.sha);
@@ -164,15 +169,16 @@ body {
   font-size: 0.9em;
   white-space: nowrap; overflow: hidden;
 }
-.copy-btn {
+.copy-btn, .graph-btn {
   display: none; align-items: center; justify-content: center;
   background: none; border: none;
   color: var(--vscode-icon-foreground, var(--vscode-foreground));
   opacity: 0.55; cursor: pointer; padding: 2px; border-radius: 3px;
   margin-left: 4px; flex-shrink: 0;
 }
-.row:hover .copy-btn { display: flex; }
-.copy-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
+.graph-btn { margin-left: 0; margin-right: 4px; }
+.row:hover .copy-btn, .row:hover .graph-btn { display: flex; }
+.copy-btn:hover, .graph-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
 .empty { padding: 6px 20px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
 #vtip { display: none; position: fixed; background: var(--vscode-editorHoverWidget-background); border: 1px solid var(--vscode-editorHoverWidget-border); color: var(--vscode-editorHoverWidget-foreground); padding: 2px 6px; font-size: 0.85em; white-space: nowrap; pointer-events: none; z-index: 1000; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36)); }
 #tip {
@@ -246,6 +252,14 @@ function esc(s) {
 
 var copySvg = '<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">'
   + '<path d="M4 4v-3h9v11h-3v1h-9v-11h3zm1 0h5v9h2v-9h-7v0zm-1 1h-2v9h7v-9h-5z"/>'
+  + '</svg>';
+var graphSvg = '<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">'
+  + '<circle cx="3" cy="3" r="2"/>'
+  + '<circle cx="3" cy="13" r="2"/>'
+  + '<circle cx="13" cy="8" r="2"/>'
+  + '<line x1="3" y1="5" x2="3" y2="11" stroke="currentColor" stroke-width="1.5"/>'
+  + '<line x1="5" y1="3" x2="11" y2="7" stroke="currentColor" stroke-width="1.5"/>'
+  + '<line x1="5" y1="13" x2="11" y2="9" stroke="currentColor" stroke-width="1.5"/>'
   + '</svg>';
 
 function showSuggest(matches) {
@@ -322,6 +336,7 @@ function render() {
     var authRest = rawRest ? '\u00a0' + rawRest : '';
     var dateFirst = (c.shortDate || '') + (c.shortAuthor ? (c.shortDate ? ' \u00b7 ' : '') + c.shortAuthor : '');
     return '<div class="row" data-sha="' + esc(c.sha) + '" data-tooltip="' + esc(c.message) + '" data-date="' + esc(c.relativeDate || '') + '" data-author="' + esc(c.author || '') + '">'
+      + '<button class="graph-btn" data-sha="' + esc(c.sha) + '" data-vtip="Open in Commit Graph">' + graphSvg + '</button>'
       + '<span class="msg">' + esc(c.message) + '</span>'
       + (dateFirst ? '<span class="date-first">' + esc(dateFirst) + '</span>' : '')
       + (authRest ? '<span class="auth-rest">' + esc(authRest) + '</span>' : '')
@@ -333,6 +348,8 @@ function render() {
 lst.addEventListener('click', function(e) {
   var btn = e.target.closest('.copy-btn');
   if (btn) { e.stopPropagation(); vsc.postMessage({type:'copySha', sha: btn.dataset.sha}); return; }
+  var gbtn = e.target.closest('.graph-btn');
+  if (gbtn) { e.stopPropagation(); vsc.postMessage({type:'openGraph', sha: gbtn.dataset.sha}); return; }
   var row = e.target.closest('.row');
   if (row) { vsc.postMessage({type:'openCommitDetails', sha: row.dataset.sha}); }
 });

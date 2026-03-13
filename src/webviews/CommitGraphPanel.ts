@@ -1,0 +1,779 @@
+import * as vscode from 'vscode';
+import { GitService } from '../git/GitService';
+
+/**
+ * Singleton webview panel that renders a canvas-based commit graph (DAG).
+ * Opened as an editor tab; shows all local branches + their upstream remotes.
+ */
+export class CommitGraphPanel implements vscode.Disposable {
+    private static readonly VIEW_TYPE = 'gitlite.commitGraph';
+    private static instance: CommitGraphPanel | undefined;
+
+    private panel: vscode.WebviewPanel | undefined;
+    private readonly disposables: vscode.Disposable[] = [];
+
+    private constructor(private readonly gitService: GitService) {}
+
+    static getInstance(gitService: GitService): CommitGraphPanel {
+        if (!CommitGraphPanel.instance) {
+            CommitGraphPanel.instance = new CommitGraphPanel(gitService);
+        }
+        return CommitGraphPanel.instance;
+    }
+
+    /**
+     * Open (or reveal) the graph panel, optionally scrolling to a specific commit.
+     */
+    async open(scrollToSha?: string): Promise<void> {
+        if (!this.panel) {
+            this.panel = vscode.window.createWebviewPanel(
+                CommitGraphPanel.VIEW_TYPE,
+                'Commit Graph',
+                vscode.ViewColumn.Active,
+                { enableScripts: true, retainContextWhenHidden: true }
+            );
+            this.panel.onDidDispose(() => {
+                this.panel = undefined;
+            }, null, this.disposables);
+            this.panel.webview.onDidReceiveMessage(
+                (msg: Record<string, unknown>) => this.handleMessage(msg),
+                null,
+                this.disposables
+            );
+            this.panel.webview.html = buildHtml();
+        } else {
+            this.panel.reveal(vscode.ViewColumn.Active);
+        }
+
+        await this.loadAndSend(scrollToSha);
+    }
+
+    private async loadAndSend(scrollToSha?: string, offset = 0): Promise<void> {
+        const [commits, refs] = await Promise.all([
+            this.gitService.getCommitGraph(500, offset),
+            offset === 0 ? this.gitService.getGraphRefs() : Promise.resolve(null),
+        ]);
+        if (!this.panel) { return; }
+
+        this.panel.webview.postMessage({
+            type: offset === 0 ? 'init' : 'append',
+            commits: commits.map(c => ({
+                sha: c.sha,
+                parents: c.parents,
+                author: c.author,
+                relativeDate: c.relativeDate,
+                message: c.message,
+            })),
+            refs: refs ?? undefined,
+            scrollTo: offset === 0 ? scrollToSha : undefined,
+            hasMore: commits.length === 500,
+            nextOffset: offset + commits.length,
+        });
+    }
+
+    private async handleMessage(msg: Record<string, unknown>): Promise<void> {
+        switch (msg.type) {
+            case 'loadMore':
+                await this.loadAndSend(undefined, (msg.offset as number) ?? 0);
+                break;
+
+            case 'openDetails':
+                if (typeof msg.sha === 'string') {
+                    await vscode.commands.executeCommand('gitlite.openCommitDetails', msg.sha);
+                }
+                break;
+
+            case 'copySha':
+                if (typeof msg.sha === 'string') {
+                    await vscode.env.clipboard.writeText(msg.sha);
+                    vscode.window.showInformationMessage(`GitLite: Copied ${msg.sha.slice(0, 7)} to clipboard.`);
+                }
+                break;
+
+            case 'checkout': {
+                const ref = msg.ref as string;
+                if (!ref) { break; }
+                try {
+                    await this.gitService.checkoutRef(ref);
+                    await this.open();
+                    await vscode.commands.executeCommand('gitlite.refreshAll');
+                } catch (err) {
+                    vscode.window.showErrorMessage(`GitLite: Checkout failed — ${(err as Error).message}`);
+                }
+                break;
+            }
+
+            case 'createBranch': {
+                const sha = msg.sha as string;
+                if (!sha) { break; }
+                const name = await vscode.window.showInputBox({
+                    prompt: `Create new branch at ${sha.slice(0, 7)}`,
+                    placeHolder: 'branch-name',
+                    validateInput: v => /^[\w./-]+$/.test(v.trim()) ? null : 'Invalid branch name',
+                });
+                if (!name?.trim()) { break; }
+                try {
+                    await this.gitService.createBranchFrom(sha, name.trim());
+                    await this.open(sha);
+                    await vscode.commands.executeCommand('gitlite.refreshAll');
+                } catch (err) {
+                    vscode.window.showErrorMessage(`GitLite: Create branch failed — ${(err as Error).message}`);
+                }
+                break;
+            }
+
+            case 'cherryPick': {
+                const sha = msg.sha as string;
+                if (!sha) { break; }
+                const confirm = await vscode.window.showWarningMessage(
+                    `Cherry-pick ${sha.slice(0, 7)} onto current branch?`,
+                    { modal: true }, 'Cherry-pick'
+                );
+                if (confirm !== 'Cherry-pick') { break; }
+                try {
+                    await this.gitService.cherryPick(sha);
+                    await this.open();
+                    await vscode.commands.executeCommand('gitlite.refreshAll');
+                } catch (err) {
+                    vscode.window.showErrorMessage(`GitLite: Cherry-pick failed — ${(err as Error).message}`);
+                }
+                break;
+            }
+
+            case 'reset': {
+                const sha = msg.sha as string;
+                if (!sha) { break; }
+                const mode = await vscode.window.showQuickPick(
+                    [
+                        { label: '$(history) Soft', description: 'Keep staged and working changes', value: 'soft' as const },
+                        { label: '$(discard) Mixed', description: 'Keep working changes, unstage index', value: 'mixed' as const },
+                        { label: '$(trash) Hard', description: 'Discard all changes (cannot be undone)', value: 'hard' as const },
+                    ],
+                    { title: `Reset to ${sha.slice(0, 7)}`, placeHolder: 'Choose reset mode' }
+                );
+                if (!mode) { break; }
+                if (mode.value === 'hard') {
+                    const confirm = await vscode.window.showWarningMessage(
+                        `Hard reset to ${sha.slice(0, 7)}? All uncommitted changes will be lost.`,
+                        { modal: true }, 'Hard Reset'
+                    );
+                    if (confirm !== 'Hard Reset') { break; }
+                }
+                try {
+                    await this.gitService.resetToCommit(sha, mode.value);
+                    await this.open(sha);
+                    await vscode.commands.executeCommand('gitlite.refreshAll');
+                } catch (err) {
+                    vscode.window.showErrorMessage(`GitLite: Reset failed — ${(err as Error).message}`);
+                }
+                break;
+            }
+        }
+    }
+
+    dispose(): void {
+        CommitGraphPanel.instance = undefined;
+        this.panel?.dispose();
+        for (const d of this.disposables) { d.dispose(); }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// HTML / Canvas graph builder
+// ---------------------------------------------------------------------------
+
+function buildHtml(): string {
+    return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  display: flex;
+  flex-direction: column;
+}
+#graph-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+canvas#graph-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+#commit-list {
+  position: relative;
+  z-index: 1;
+}
+.row {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.row:hover { background: linear-gradient(to right, transparent var(--graph-w, 0px), var(--vscode-list-hoverBackground) var(--graph-w, 0px)); }
+.row-graph-spacer { flex-shrink: 0; }
+.ref-badges { flex-shrink: 0; display: flex; gap: 2px; margin-right: 4px; }
+.badge {
+  font-size: 0.75em;
+  padding: 0 4px;
+  border-radius: 3px;
+  line-height: 16px;
+  font-weight: 500;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.badge-branch  { background: #1f6feb33; color: #58a6ff; border: 1px solid #58a6ff55; }
+.badge-current { background: #1a7f3744; color: #3fb950; border: 1px solid #3fb95066; }
+.badge-remote  { background: #6e768122; color: #8b949e; border: 1px solid #8b949e44; }
+.badge-tag     { background: #bb8009aa; color: #d29922; border: 1px solid #d2992266; }
+.badge-head    { background: #6e40c9aa; color: #bc8cff; border: 1px solid #bc8cff55; }
+.commit-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.commit-meta {
+  flex-shrink: 0;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+  margin-left: 8px;
+  margin-right: 12px;
+}
+#load-more-row {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+}
+#load-more-btn {
+  background: none;
+  border: 1px solid var(--vscode-button-secondaryBackground, #555);
+  color: var(--vscode-foreground);
+  opacity: 0.7;
+  padding: 2px 10px;
+  cursor: pointer;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.85em;
+}
+#load-more-btn:hover { opacity: 1; background: var(--vscode-list-hoverBackground); }
+
+/* Context menu */
+#ctx-menu {
+  display: none;
+  position: fixed;
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border));
+  color: var(--vscode-menu-foreground, var(--vscode-foreground));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36));
+  z-index: 200;
+  min-width: 180px;
+  border-radius: 4px;
+  overflow: hidden;
+  padding: 2px 0;
+}
+.ctx-item {
+  padding: 4px 16px;
+  cursor: pointer;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+.ctx-item:hover { background: var(--vscode-menu-selectionBackground, var(--vscode-list-hoverBackground)); color: var(--vscode-menu-selectionForeground, inherit); }
+.ctx-sep { border-top: 1px solid var(--vscode-menu-separatorBackground, var(--vscode-editorWidget-border)); margin: 2px 0; }
+
+/* Hover tooltip */
+#htip {
+  display: none;
+  position: fixed;
+  background: var(--vscode-editorHoverWidget-background);
+  border: 1px solid var(--vscode-editorHoverWidget-border);
+  color: var(--vscode-editorHoverWidget-foreground);
+  padding: 3px 8px;
+  max-width: calc(100vw - 16px);
+  font-size: 0.9em;
+  line-height: 1.4;
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36));
+  pointer-events: none;
+  z-index: 100;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.htip-meta { font-size: 0.85em; opacity: 0.8; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="graph-wrapper">
+  <canvas id="graph-canvas"></canvas>
+  <div id="commit-list"></div>
+</div>
+<div id="ctx-menu"></div>
+<div id="htip"></div>
+<script>
+(function() {
+'use strict';
+
+var vsc = acquireVsCodeApi();
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+var ROW_H    = 22;
+var LANE_W   = 12;
+var NODE_R   = 4;
+var L_PAD    = 6;   // left pad before first lane
+
+// Lane colours — use CSS variables where possible but canvas needs real colors.
+// These are chosen to be readable on both dark and light themes.
+var LANE_COLORS = [
+  '#58a6ff',  // blue
+  '#3fb950',  // green
+  '#d29922',  // yellow
+  '#f78166',  // red
+  '#bc8cff',  // purple
+  '#39c5cf',  // cyan
+  '#ff7b72',  // orange
+  '#a5d6ff',  // light blue
+];
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+var allCommits  = [];  // CommitGraphEntry[]
+var allRefs     = [];  // GraphRef[]
+var layout      = [];  // LayoutRow[]
+var nextOffset  = 0;
+var hasMore     = false;
+var pendingScrollTo = null;
+
+// ---------------------------------------------------------------------------
+// DOM refs
+// ---------------------------------------------------------------------------
+var wrapper  = document.getElementById('graph-wrapper');
+var canvas   = document.getElementById('graph-canvas');
+var ctx      = canvas.getContext('2d');
+var list     = document.getElementById('commit-list');
+var ctxMenu  = document.getElementById('ctx-menu');
+var htip     = document.getElementById('htip');
+var htipTimer;
+
+// ---------------------------------------------------------------------------
+// Message handling (from extension)
+// ---------------------------------------------------------------------------
+window.addEventListener('message', function(ev) {
+  var msg = ev.data;
+  if (msg.type === 'init') {
+    allCommits  = msg.commits;
+    allRefs     = msg.refs || [];
+    nextOffset  = msg.nextOffset || allCommits.length;
+    hasMore     = msg.hasMore || false;
+    pendingScrollTo = msg.scrollTo || null;
+    buildGraph();
+  } else if (msg.type === 'append') {
+    allCommits  = allCommits.concat(msg.commits);
+    nextOffset  = msg.nextOffset || allCommits.length;
+    hasMore     = msg.hasMore || false;
+    buildGraph();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// DAG layout
+// ---------------------------------------------------------------------------
+function buildGraph() {
+  layout = computeLayout(allCommits);
+  renderDom();
+  drawCanvas();
+  if (pendingScrollTo) {
+    var el = document.querySelector('[data-sha="' + pendingScrollTo + '"]');
+    if (el) { el.scrollIntoView({ block: 'center' }); }
+    pendingScrollTo = null;
+  }
+}
+
+/**
+ * Assign each commit a column (lane) producing an activeLanes list.
+ * Returns an array of LayoutRow objects:
+ *   { sha, col, colorIdx, edges: [{fromCol, toCol, colorIdx}] }
+ *
+ * Lane assignment:
+ *  - If a lane is already "waiting" for this SHA, claim its column.
+ *  - Otherwise take the first free (null) slot or push new.
+ *  - First parent reuses the commit's lane; extra parents get new lanes.
+ */
+function computeLayout(commits) {
+  // activeLanes[col] = sha the slot is "reserved for", or null = free
+  var activeLanes = [];
+  var rows = [];
+
+  for (var i = 0; i < commits.length; i++) {
+    var c = commits[i];
+
+    // Find if any lane is already reserved for this sha
+    var col = -1;
+    var colorIdx = -1;
+    var hasIncoming = false;
+    for (var l = 0; l < activeLanes.length; l++) {
+      if (activeLanes[l] && activeLanes[l].sha === c.sha) {
+        col = l;
+        colorIdx = activeLanes[l].colorIdx;
+        hasIncoming = true;
+        break;
+      }
+    }
+
+    // If not found, take first free slot or extend
+    if (col === -1) {
+      col = activeLanes.indexOf(null);
+      if (col === -1) { col = activeLanes.length; }
+      colorIdx = col % LANE_COLORS.length;
+    }
+
+    // Collect edges for this row (lines from this commit to its parents).
+    // Also detect edges passing through this row from other active lanes.
+    var edges = [];
+
+    // Gather all lanes still passing through (not this commit's lane)
+    for (var l2 = 0; l2 < activeLanes.length; l2++) {
+      if (l2 === col) { continue; }
+      var lane = activeLanes[l2];
+      if (!lane) { continue; }
+      edges.push({ fromCol: l2, toCol: l2, colorIdx: lane.colorIdx, type: 'through' });
+    }
+
+    // Release this lane
+    activeLanes[col] = null;
+
+    // Assign parents to lanes
+    var parents = c.parents || [];
+    for (var p = 0; p < parents.length; p++) {
+      var pSha = parents[p];
+      // Check if a lane already reserved for this parent
+      var existingLane = -1;
+      for (var l3 = 0; l3 < activeLanes.length; l3++) {
+        if (activeLanes[l3] && activeLanes[l3].sha === pSha) {
+          existingLane = l3;
+          break;
+        }
+      }
+      if (existingLane !== -1) {
+        // Edge from col to existingLane
+        edges.push({ fromCol: col, toCol: existingLane, colorIdx: colorIdx, type: 'edge' });
+      } else {
+        // Assign to same lane for first parent, new lane for others
+        var targetCol = (p === 0) ? col : -1;
+        if (targetCol === -1) {
+          targetCol = activeLanes.indexOf(null);
+          if (targetCol === -1) { targetCol = activeLanes.length; }
+        }
+        activeLanes[targetCol] = { sha: pSha, colorIdx: (p === 0) ? colorIdx : (targetCol % LANE_COLORS.length) };
+        edges.push({ fromCol: col, toCol: targetCol, colorIdx: colorIdx, type: 'edge' });
+      }
+    }
+
+    rows.push({ sha: c.sha, col: col, colorIdx: colorIdx, hasIncoming: hasIncoming, edges: edges });
+  }
+
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Canvas drawing
+// ---------------------------------------------------------------------------
+function drawCanvas() {
+  var maxCol = 0;
+  for (var i = 0; i < layout.length; i++) {
+    var row = layout[i];
+    if (row.col > maxCol) { maxCol = row.col; }
+    for (var e = 0; e < row.edges.length; e++) {
+      var edge = row.edges[e];
+      if (edge.fromCol > maxCol) { maxCol = edge.fromCol; }
+      if (edge.toCol > maxCol)   { maxCol = edge.toCol; }
+    }
+  }
+
+  var graphW  = L_PAD + (maxCol + 1) * LANE_W + 4;
+  var totalH  = (layout.length + 1) * ROW_H;  // +1 for load-more row
+
+  canvas.width  = graphW;
+  canvas.height = totalH;
+  canvas.style.width  = graphW + 'px';
+  canvas.style.height = totalH + 'px';
+
+  // Expose graph width as CSS variable so hover highlight starts after the canvas
+  document.body.style.setProperty('--graph-w', graphW + 'px');
+
+  // Update left padding on rows
+  var rows = list.querySelectorAll('.row');
+  for (var i2 = 0; i2 < rows.length; i2++) {
+    var sp = rows[i2].querySelector('.row-graph-spacer');
+    if (sp) { sp.style.width = graphW + 'px'; }
+  }
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (var r = 0; r < layout.length; r++) {
+    var lr = layout[r];
+    var cx = L_PAD + lr.col * LANE_W + LANE_W / 2;
+    var cy = r * ROW_H + ROW_H / 2;
+
+    // Incoming stem from previous row boundary down to this node center.
+    // This keeps root/bottom commits and first-in-lane commits visibly connected.
+    if (lr.hasIncoming) {
+      ctx.beginPath();
+      ctx.moveTo(cx, r * ROW_H);
+      ctx.lineTo(cx, cy);
+      ctx.strokeStyle = LANE_COLORS[lr.colorIdx % LANE_COLORS.length];
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // Draw edges
+    for (var e2 = 0; e2 < lr.edges.length; e2++) {
+      var edge2 = lr.edges[e2];
+      if (edge2.type === 'through') {
+        // Straight vertical line through this row
+        var ex = L_PAD + edge2.fromCol * LANE_W + LANE_W / 2;
+        ctx.beginPath();
+        ctx.moveTo(ex, r * ROW_H);
+        ctx.lineTo(ex, (r + 1) * ROW_H);
+        ctx.strokeStyle = LANE_COLORS[edge2.colorIdx % LANE_COLORS.length];
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else {
+        // Edge from this commit to a parent (possibly diagonal)
+        var fx = L_PAD + edge2.fromCol * LANE_W + LANE_W / 2;
+        var tx = L_PAD + edge2.toCol   * LANE_W + LANE_W / 2;
+        var ty = (r + 1) * ROW_H;
+        ctx.beginPath();
+        if (fx === tx) {
+          // Straight continuation from this node to the next row boundary.
+          ctx.moveTo(fx, cy);
+          ctx.lineTo(tx, ty);
+        } else {
+          // Diagonal (merge/branch): start from the node centre so the
+          // curve originates visually from the commit dot.
+          ctx.moveTo(fx, cy);
+          ctx.bezierCurveTo(fx, cy + ROW_H * 0.5, tx, ty - ROW_H * 0.5, tx, ty);
+        }
+        ctx.strokeStyle = LANE_COLORS[edge2.colorIdx % LANE_COLORS.length];
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    // Draw node
+    ctx.beginPath();
+    ctx.arc(cx, cy, NODE_R, 0, 2 * Math.PI);
+    ctx.fillStyle = LANE_COLORS[lr.colorIdx % LANE_COLORS.length];
+    ctx.fill();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DOM rendering
+// ---------------------------------------------------------------------------
+
+// Build a map: sha -> GraphRef[]
+function buildRefsMap() {
+  var map = {};
+  for (var i = 0; i < allRefs.length; i++) {
+    var ref = allRefs[i];
+    if (!map[ref.sha]) { map[ref.sha] = []; }
+    map[ref.sha].push(ref);
+  }
+  return map;
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function refBadge(ref) {
+  var cls = 'badge ';
+  if (ref.type === 'HEAD')   { cls += 'badge-head'; }
+  else if (ref.isCurrent)    { cls += 'badge-current'; }
+  else if (ref.type === 'branch') { cls += 'badge-branch'; }
+  else if (ref.type === 'remote') { cls += 'badge-remote'; }
+  else if (ref.type === 'tag')    { cls += 'badge-tag'; }
+  return '<span class="' + cls + '" title="' + esc(ref.name) + '">' + esc(ref.name) + '</span>';
+}
+
+function renderDom() {
+  var refsMap = buildRefsMap();
+  var html = '';
+
+  for (var i = 0; i < allCommits.length; i++) {
+    var c   = allCommits[i];
+    var refs = refsMap[c.sha] || [];
+
+    var badges = '';
+    for (var j = 0; j < refs.length; j++) { badges += refBadge(refs[j]); }
+
+    var sha7 = c.sha.slice(0, 7);
+    var meta = sha7 + (c.relativeDate ? ' \u00b7 ' + c.relativeDate : '') + (c.author ? ' \u00b7 ' + c.author : '');
+
+    html += '<div class="row" data-sha="' + esc(c.sha) + '" data-msg="' + esc(c.message) + '" data-meta="' + esc(meta) + '">'
+      + '<div class="row-graph-spacer"></div>'
+      + (badges ? '<div class="ref-badges">' + badges + '</div>' : '')
+      + '<span class="commit-msg">' + esc(c.message) + '</span>'
+      + '<span class="commit-meta">' + esc(sha7) + ' \u00b7 ' + esc(c.relativeDate || '') + ' \u00b7 ' + esc(c.author || '') + '</span>'
+      + '</div>';
+  }
+
+  if (hasMore) {
+    html += '<div id="load-more-row"><button id="load-more-btn">Load 500 more commits\u2026</button></div>';
+  }
+
+  list.innerHTML = html;
+
+  // Re-bind load-more
+  var lmBtn = document.getElementById('load-more-btn');
+  if (lmBtn) {
+    lmBtn.addEventListener('click', function() {
+      lmBtn.disabled = true;
+      lmBtn.textContent = 'Loading\u2026';
+      vsc.postMessage({ type: 'loadMore', offset: nextOffset });
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Interactions
+// ---------------------------------------------------------------------------
+
+// Left-click → open commit details
+list.addEventListener('click', function(e) {
+  closeCtxMenu();
+  var row = e.target.closest('.row');
+  if (row && row.dataset.sha) {
+    vsc.postMessage({ type: 'openDetails', sha: row.dataset.sha });
+  }
+});
+
+// Right-click → context menu
+list.addEventListener('contextmenu', function(e) {
+  var row = e.target.closest('.row');
+  if (!row || !row.dataset.sha) { return; }
+  e.preventDefault();
+  showCtxMenu(e.clientX, e.clientY, row.dataset.sha);
+});
+
+// Close context menu on click elsewhere
+document.addEventListener('click', function(e) {
+  if (!ctxMenu.contains(e.target)) { closeCtxMenu(); }
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeCtxMenu(); }
+});
+
+function showCtxMenu(x, y, sha) {
+  var sha7 = sha.slice(0, 7);
+  ctxMenu.innerHTML =
+    '<div class="ctx-item" data-action="openDetails">Open Commit Details</div>'
+    + '<div class="ctx-item" data-action="copySha">Copy SHA (' + esc(sha7) + ')</div>'
+    + '<div class="ctx-sep"></div>'
+    + '<div class="ctx-item" data-action="checkout">Checkout\u2026</div>'
+    + '<div class="ctx-item" data-action="createBranch">Create Branch Here\u2026</div>'
+    + '<div class="ctx-sep"></div>'
+    + '<div class="ctx-item" data-action="cherryPick">Cherry-pick onto Current Branch</div>'
+    + '<div class="ctx-item" data-action="reset">Reset Current Branch to Here\u2026</div>';
+
+  ctxMenu.dataset.sha = sha;
+  ctxMenu.style.display = 'block';
+  ctxMenu.style.left = x + 'px';
+  ctxMenu.style.top  = y + 'px';
+
+  // Clamp to viewport
+  var r = ctxMenu.getBoundingClientRect();
+  if (r.right  > window.innerWidth  - 4) { ctxMenu.style.left = Math.max(4, window.innerWidth  - r.width  - 8) + 'px'; }
+  if (r.bottom > window.innerHeight - 4) { ctxMenu.style.top  = Math.max(4, window.innerHeight - r.height - 8) + 'px'; }
+}
+
+ctxMenu.addEventListener('click', function(e) {
+  var item = e.target.closest('.ctx-item');
+  if (!item) { return; }
+  var sha = ctxMenu.dataset.sha;
+  var action = item.dataset.action;
+  closeCtxMenu();
+  if (!sha || !action) { return; }
+
+  if (action === 'openDetails') {
+    vsc.postMessage({ type: 'openDetails', sha: sha });
+  } else if (action === 'copySha') {
+    vsc.postMessage({ type: 'copySha', sha: sha });
+  } else if (action === 'checkout') {
+    // Try to find a branch name first, else use SHA
+    var ref = sha;
+    for (var i = 0; i < allRefs.length; i++) {
+      if (allRefs[i].sha === sha && allRefs[i].type === 'branch' && allRefs[i].isCurrent === false) {
+        ref = allRefs[i].name;
+        break;
+      }
+    }
+    vsc.postMessage({ type: 'checkout', ref: ref });
+  } else if (action === 'createBranch') {
+    vsc.postMessage({ type: 'createBranch', sha: sha });
+  } else if (action === 'cherryPick') {
+    vsc.postMessage({ type: 'cherryPick', sha: sha });
+  } else if (action === 'reset') {
+    vsc.postMessage({ type: 'reset', sha: sha });
+  }
+});
+
+function closeCtxMenu() {
+  ctxMenu.style.display = 'none';
+  ctxMenu.dataset.sha = '';
+}
+
+// Hover tooltip
+list.addEventListener('mouseover', function(e) {
+  var row = e.target.closest('.row');
+  if (!row) { return; }
+  clearTimeout(htipTimer);
+  htipTimer = setTimeout(function() {
+    var rect = row.getBoundingClientRect();
+    htip.innerHTML = '<div>' + esc(row.dataset.msg || '') + '</div>'
+      + '<div class="htip-meta">' + esc(row.dataset.meta || '') + '</div>';
+    htip.style.display = 'block';
+    htip.style.left = rect.left + 'px';
+    htip.style.top  = (rect.bottom + 2) + 'px';
+    var tr = htip.getBoundingClientRect();
+    if (tr.bottom > window.innerHeight - 4) { htip.style.top  = Math.max(4, rect.top - tr.height - 2) + 'px'; }
+    if (tr.right  > window.innerWidth  - 4) { htip.style.left = Math.max(4, window.innerWidth - tr.width - 8) + 'px'; }
+  }, 500);
+});
+
+list.addEventListener('mouseout', function(e) {
+  if (!e.target.closest('.row')) { return; }
+  clearTimeout(htipTimer);
+  htip.style.display = 'none';
+});
+
+// Redraw canvas on scroll (it's position:absolute so it doesn't scroll with content)
+// No redraw needed — canvas absolute in parent tracks scrollTop automatically via the wrapper.
+
+})();
+</script>
+</body>
+</html>`;
+}
