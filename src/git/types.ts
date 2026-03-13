@@ -122,6 +122,24 @@ export interface CommitEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 4a — Interactive Rebase Editor
+// ---------------------------------------------------------------------------
+
+export type RebaseAction = 'pick' | 'squash' | 'fixup' | 'reword' | 'edit' | 'drop';
+
+export interface RebaseEntry {
+    action: RebaseAction;
+    sha: string;
+    message: string;
+    /** Original message captured at open time; used to detect edits and inject exec-amend on save. */
+    origMessage: string;
+    /** True for comment/blank lines — preserved verbatim, not interactive. */
+    isComment: boolean;
+    /** Raw source line, used when isComment=true for lossless round-tripping. */
+    raw: string;
+}
+
+// ---------------------------------------------------------------------------
 // Phase 4b — Commit Graph
 // ---------------------------------------------------------------------------
 

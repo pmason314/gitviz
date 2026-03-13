@@ -24,10 +24,32 @@
     "annotation"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCustomEditor:gitlite.rebaseEditor",
+    "onCustomEditor:gitlite.commitMessageEditor"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "gitlite.rebaseEditor",
+        "displayName": "GitLite Rebase Editor",
+        "selector": [
+          { "filenamePattern": "git-rebase-todo" }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "gitlite.commitMessageEditor",
+        "displayName": "GitLite Commit Message Editor",
+        "selector": [
+          { "filenamePattern": "COMMIT_EDITMSG" },
+          { "filenamePattern": "SQUASH_MSG" },
+          { "filenamePattern": "MERGE_MSG" }
+        ],
+        "priority": "default"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -286,6 +308,10 @@
         "command": "gitlite.openCommitGraph",
         "title": "GitLite: Open Commit Graph",
         "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "gitlite.startInteractiveRebase",
+        "title": "GitLite: Start Interactive Rebase"
       },
       {
         "command": "gitlite.diffWithPrevious",

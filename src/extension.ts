@@ -18,6 +18,8 @@ import { WorktreesProvider } from './views/WorktreesProvider';
 import { CompareView } from './views/CompareView';
 import { ComparePanel } from './webviews/ComparePanel';
 import { RevisionContentProvider, REVISION_SCHEME, makeRevisionUri } from './editors/RevisionContentProvider';
+import { RebaseEditorProvider } from './editors/RebaseEditorProvider';
+import { CommitMessageEditorProvider } from './editors/CommitMessageEditorProvider';
 import { CommitDetailsPanel } from './webviews/CommitDetailsPanel';
 import { CommitGraphPanel } from './webviews/CommitGraphPanel';
 import { FileHistoryEntry, HotFileEntry, StashInfo, BranchInfo, TagInfo, WorktreeInfo } from './git/types';
@@ -85,6 +87,8 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const revisionProvider = new RevisionContentProvider(gitService);
     const commitDetailsPanel = new CommitDetailsPanel(gitService);
     const commitGraphPanel   = CommitGraphPanel.getInstance(gitService);
+    const rebaseEditorProvider = new RebaseEditorProvider();
+    const commitMessageEditorProvider = new CommitMessageEditorProvider();
 
     // -------------------------------------------------------------------------
     // Register providers
@@ -106,6 +110,18 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         revisionProvider,
         commitDetailsPanel,
         commitGraphPanel,
+        rebaseEditorProvider,
+        vscode.window.registerCustomEditorProvider(
+            RebaseEditorProvider.viewType,
+            rebaseEditorProvider,
+            { webviewOptions: { retainContextWhenHidden: true } }
+        ),
+        commitMessageEditorProvider,
+        vscode.window.registerCustomEditorProvider(
+            CommitMessageEditorProvider.viewType,
+            commitMessageEditorProvider,
+            { webviewOptions: { retainContextWhenHidden: true } }
+        ),
         vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider),
         vscode.window.registerTreeDataProvider('gitlite.fileHistory', fileHistoryProvider),
         vscode.window.registerTreeDataProvider('gitlite.lineHistory', lineHistoryProvider),
@@ -259,6 +275,25 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             await commitGraphPanel.open(sha).catch((err: Error) => {
                 vscode.window.showErrorMessage(`GitLite: ${err.message}`);
             });
+        }),
+
+        vscode.commands.registerCommand('gitlite.startInteractiveRebase', async () => {
+            const input = await vscode.window.showInputBox({
+                title: 'Interactive Rebase',
+                prompt: 'Number of commits to rebase, or a base branch/SHA (e.g. 5, main, HEAD~3)',
+                placeHolder: '5',
+                validateInput: v => v.trim() ? undefined : 'Enter a number or a branch/SHA',
+            });
+            if (!input) { return; }
+            const trimmed = input.trim();
+            const base = /^\d+$/.test(trimmed) ? `HEAD~${trimmed}` : trimmed;
+            const terminal = vscode.window.createTerminal({
+                name: 'Git Rebase',
+                cwd: gitService.getRepoRoot(),
+                env: { GIT_SEQUENCE_EDITOR: 'code --wait' },
+            });
+            terminal.show();
+            terminal.sendText(`git rebase -i ${base}`);
         }),
 
         // Internal helper: refresh commits + branches + worktrees (used after mutating git operations)
