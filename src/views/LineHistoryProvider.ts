@@ -101,6 +101,13 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
         this._onDidChangeTreeData.fire();
     }
 
+    /** Re-run the current line history query (e.g. after a pull brings in new commits). */
+    refresh(): void {
+        if (this.currentFilePath && this.currentLine > 0) {
+            void this.load(this.currentFilePath, this.currentLine);
+        }
+    }
+
     getTreeItem(node: LineHistoryNode): vscode.TreeItem {
         if ('kind' in node) {
             if (node.kind === 'loading') {

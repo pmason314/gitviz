@@ -155,11 +155,15 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         const gitDir = vscode.Uri.file(gitService.getRepoRoot() + '/.git');
 
         // Debounce helpers — coalesces rapid multi-file changes (e.g. during checkout)
-        let branchTimer:    ReturnType<typeof setTimeout> | undefined;
-        let tagTimer:       ReturnType<typeof setTimeout> | undefined;
-        let stashTimer:     ReturnType<typeof setTimeout> | undefined;
-        let worktreeTimer:  ReturnType<typeof setTimeout> | undefined;
+        let branchTimer:      ReturnType<typeof setTimeout> | undefined;
+        let commitsTimer:     ReturnType<typeof setTimeout> | undefined;
+        let historyTimer:     ReturnType<typeof setTimeout> | undefined;
+        let tagTimer:         ReturnType<typeof setTimeout> | undefined;
+        let stashTimer:       ReturnType<typeof setTimeout> | undefined;
+        let worktreeTimer:    ReturnType<typeof setTimeout> | undefined;
         const debounceBranches  = () => { clearTimeout(branchTimer);   branchTimer   = setTimeout(() => void branchesProvider.refresh(),  300); };
+        const debounceCommits   = () => { clearTimeout(commitsTimer);  commitsTimer  = setTimeout(() => void commitsView.refresh(),        300); };
+        const debounceHistory   = () => { clearTimeout(historyTimer);  historyTimer  = setTimeout(() => { fileHistoryProvider.refresh(); lineHistoryProvider.refresh(); hotFilesView.refresh(); }, 300); };
         const debounceTags      = () => { clearTimeout(tagTimer);       tagTimer      = setTimeout(() => { gitService.clearTagCache(); void commitsView.refresh(); },       300); };
         const debounceStashes   = () => { clearTimeout(stashTimer);     stashTimer    = setTimeout(() => void stashesProvider.refresh(),  300); };
         const debounceWorktrees = () => { clearTimeout(worktreeTimer);  worktreeTimer = setTimeout(() => void worktreesProvider.refresh(), 300); };
@@ -167,9 +171,12 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // HEAD changes on checkout
         const watchHead = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(gitDir, 'HEAD'));
-        // branch refs
+        // branch refs — updated by git pull (fast-forward)
         const watchRefs = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(gitDir, 'refs/heads/**'));
+        // remote tracking refs — updated by git fetch/pull
+        const watchRemotes = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(gitDir, 'refs/remotes/**'));
         // packed-refs covers both branches and tags after fetch/gc
         const watchPacked = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(gitDir, 'packed-refs'));
@@ -190,6 +197,23 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             new vscode.RelativePattern(gitDir, 'worktrees/*/index'));
 
         for (const w of [watchHead, watchRefs]) {
+            w.onDidCreate(debounceBranches);
+            w.onDidChange(debounceBranches);
+            w.onDidDelete(debounceBranches);
+        }
+        // HEAD and refs/heads changes (checkout, pull, rebase) all affect file/line
+        // history and hot files commit counts
+        for (const w of [watchHead, watchRefs]) {
+            w.onDidCreate(debounceHistory);
+            w.onDidChange(debounceHistory);
+        }
+        // refs/heads changes (pull) and refs/remotes changes (fetch) both
+        // bring in new commits — refresh the commits view for both
+        for (const w of [watchRefs, watchRemotes]) {
+            w.onDidCreate(debounceCommits);
+            w.onDidChange(debounceCommits);
+        }
+        for (const w of [watchRemotes]) {
             w.onDidCreate(debounceBranches);
             w.onDidChange(debounceBranches);
             w.onDidDelete(debounceBranches);
@@ -217,7 +241,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             w.onDidDelete(debounceWorktrees);
         }
 
-        context.subscriptions.push(watchHead, watchRefs, watchPacked, watchTags, watchStash, watchWorktrees, watchMainIndex, watchLinkedIndex);
+        context.subscriptions.push(watchHead, watchRefs, watchRemotes, watchPacked, watchTags, watchStash, watchWorktrees, watchMainIndex, watchLinkedIndex);
     }
 
     // -------------------------------------------------------------------------

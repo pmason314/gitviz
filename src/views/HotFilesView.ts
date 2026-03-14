@@ -138,6 +138,11 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
         this._view?.webview.postMessage({ type: 'update', files, emptyMessage });
     }
 
+    /** Re-fetch hot files (e.g. after a pull brings in new commits). */
+    refresh(): void {
+        this._loadAndSend();
+    }
+
     setHideDeleted(val: boolean): void {
         this.hideDeleted = val;
         this._sendFiltered();

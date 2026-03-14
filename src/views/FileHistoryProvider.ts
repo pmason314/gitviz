@@ -88,6 +88,11 @@ export class FileHistoryProvider implements vscode.TreeDataProvider<HistoryNode>
         }
     }
 
+    /** Re-render the current file's history (e.g. after a pull brings in new commits). */
+    refresh(): void {
+        this._onDidChangeTreeData.fire();
+    }
+
     /** Load history for an explicit file path (e.g. triggered from Hot Files view). */
     loadForFile(filePath: string): void {
         this.currentFilePath = filePath;
