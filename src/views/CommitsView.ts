@@ -125,7 +125,7 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
             message: c.message,
             author: c.author,
             relativeDate: c.relativeDate,
-            shortAuthor: c.author ? c.author.split(/[\s@]/)[0] : '',
+            shortAuthor: c.author ? c.author.split(/[\s@\-_]/)[0] : '',
             shortDate: c.relativeDate
                 ? c.relativeDate
                     .replace(/^an? /, '1 ')

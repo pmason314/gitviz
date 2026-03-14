@@ -157,6 +157,118 @@
         {
           "command": "gitviz.openLineHistory",
           "when": "false"
+        },
+        {
+          "command": "gitviz.copySha",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.fileHistory.openAtRevision",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.fileHistory.diffWithPrevious",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.fileHistory.openCommitDetails",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.lineHistory.openDiff",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.hotFiles.set7",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.hotFiles.set30",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.hotFiles.set90",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.hotFiles.setAll",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.hotFiles.hideDeleted",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.hotFiles.showDeleted",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.hotFiles.openFileHistory",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.branch.create",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.branch.checkout",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.branch.rename",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.branch.delete",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.branches.filterUntracked",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.branches.showAllBranches",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.branches.cleanupUntracked",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.stash.create",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.stash.dropAll",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.stash.openDetails",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.stash.applyEntry",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.stash.popEntry",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.stash.dropEntry",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.worktree.create",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.worktree.open",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.worktree.delete",
+          "when": "false"
         }
       ],
       "view/title": [
