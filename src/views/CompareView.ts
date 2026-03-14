@@ -14,7 +14,7 @@ interface RefQuickPickItem extends vscode.QuickPickItem {
  * Empty string = working directory.
  */
 export class CompareView implements vscode.WebviewViewProvider, vscode.Disposable {
-    static readonly viewType = 'gitlite.searchCompare';
+    static readonly viewType = 'gitviz.searchCompare';
 
     private _view?: vscode.WebviewView;
 
@@ -44,7 +44,7 @@ export class CompareView implements vscode.WebviewViewProvider, vscode.Disposabl
             async (msg: { type: string; slot?: number; ref1?: string; ref2?: string }) => {
                 if (msg.type === 'compare') {
                     void vscode.commands.executeCommand(
-                        'gitlite.compare.run',
+                        'gitviz.compare.run',
                         msg.ref1 ?? '',
                         msg.ref2 ?? '',
                     );

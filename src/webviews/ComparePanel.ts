@@ -10,7 +10,7 @@ import { makeRevisionUri } from '../editors/RevisionContentProvider';
  * open a vscode.diff of that file between the two refs.
  */
 export class ComparePanel implements vscode.Disposable {
-    private static readonly VIEW_TYPE = 'gitlite.comparePanel';
+    private static readonly VIEW_TYPE = 'gitviz.comparePanel';
 
     private panel: vscode.WebviewPanel | undefined;
     private currentRef1 = '';
@@ -38,7 +38,7 @@ export class ComparePanel implements vscode.Disposable {
             this.panel.webview.onDidReceiveMessage(
                 (msg: { command: string; path?: string }) =>
                     this.handleMessage(msg).catch((err: Error) => {
-                        vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+                        vscode.window.showErrorMessage(`GitViz: ${err.message}`);
                     }),
                 null,
                 this.disposables,

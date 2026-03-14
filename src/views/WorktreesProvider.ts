@@ -24,7 +24,7 @@ export class WorktreesProvider
                 contextValue: (w.path === repoRoot ? 'worktreeCurrent' : 'worktree') as 'worktree' | 'worktreeCurrent',
             }));
         } catch (err) {
-            console.error('[GitLite] WorktreesProvider: failed to load worktrees', err);
+            console.error('[GitViz] WorktreesProvider: failed to load worktrees', err);
             this.worktrees = [];
         }
         this._onDidChangeTreeData.fire();
@@ -75,7 +75,7 @@ export class WorktreesProvider
 
         if (!element.isBare && !isCurrent) {
             item.command = {
-                command: 'gitlite.worktree.open',
+                command: 'gitviz.worktree.open',
                 title: 'Open Worktree in New Window',
                 arguments: [element],
             };

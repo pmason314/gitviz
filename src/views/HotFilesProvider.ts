@@ -6,7 +6,7 @@ import { HotFileEntry } from '../git/types';
 export type Timeframe = 7 | 30 | 90 | null;
 
 /** URI scheme used to attach heat decorations to tree items. */
-export const HOT_SCHEME = 'gitlite-hot';
+export const HOT_SCHEME = 'gitviz-hot';
 
 /** Sentinel item rendered when the query returns no results. */
 const EMPTY_ENTRY = { _empty: true } as const;
@@ -50,7 +50,7 @@ function matchesFilter(filePath: string, filter: string): boolean {
 
 /**
  * FileDecorationProvider that colours file labels in the Hot Files view.
- * Only responds to URIs with the `gitlite-hot:` scheme; the authority
+ * Only responds to URIs with the `gitviz-hot:` scheme; the authority
  * encodes the heat tier: "high" | "medium" (low gets no decoration).
  */
 export class HotFileDecorationProvider implements vscode.FileDecorationProvider, vscode.Disposable {
@@ -60,8 +60,8 @@ export class HotFileDecorationProvider implements vscode.FileDecorationProvider,
     provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
         if (uri.scheme !== HOT_SCHEME) { return undefined; }
         switch (uri.authority) {
-            case 'high':   return { color: new vscode.ThemeColor('gitlite.hotFile.heatHigh') };
-            case 'medium': return { color: new vscode.ThemeColor('gitlite.hotFile.heatMedium') };
+            case 'high':   return { color: new vscode.ThemeColor('gitviz.hotFile.heatHigh') };
+            case 'medium': return { color: new vscode.ThemeColor('gitviz.hotFile.heatMedium') };
             case 'dim':    return { color: new vscode.ThemeColor('descriptionForeground') };
             default:       return undefined;
         }

@@ -1,14 +1,14 @@
 {
-  "name": "gitlite-vsc",
-  "displayName": "GitLite",
+  "name": "gitviz",
+  "displayName": "GitViz",
   "description": "Lightweight GitLens alternative — blame annotations, heatmap, history, and repository exploration without cloud sync or telemetry.",
   "version": "0.1.0",
   "publisher": "pmason314",
-  "icon": "resources/gitlite-icon.png",
+  "icon": "resources/gitviz-icon.png",
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pmason314/gitlite"
+    "url": "https://github.com/pmason314/gitviz"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -39,16 +39,16 @@
   "contributes": {
     "customEditors": [
       {
-        "viewType": "gitlite.rebaseEditor",
-        "displayName": "GitLite Rebase Editor",
+        "viewType": "gitviz.rebaseEditor",
+        "displayName": "GitViz Rebase Editor",
         "selector": [
           { "filenamePattern": "git-rebase-todo" }
         ],
         "priority": "default"
       },
       {
-        "viewType": "gitlite.commitMessageEditor",
-        "displayName": "GitLite Commit Message Editor",
+        "viewType": "gitviz.commitMessageEditor",
+        "displayName": "GitViz Commit Message Editor",
         "selector": [
           { "filenamePattern": "COMMIT_EDITMSG" },
           { "filenamePattern": "SQUASH_MSG" },
@@ -60,56 +60,56 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "gitlite",
-          "title": "GitLite",
-          "icon": "resources/gitlite.svg"
+          "id": "gitviz",
+          "title": "GitViz",
+          "icon": "resources/gitviz.svg"
         }
       ]
     },
     "views": {
-      "gitlite": [
+      "gitviz": [
         {
-          "id": "gitlite.fileHistory",
+          "id": "gitviz.fileHistory",
           "name": "File History",
           "icon": "$(history)"
         },
         {
-          "id": "gitlite.lineHistory",
+          "id": "gitviz.lineHistory",
           "name": "Line History",
           "icon": "$(list-ordered)"
         },
         {
-          "id": "gitlite.hotFiles",
+          "id": "gitviz.hotFiles",
           "name": "Hot Files",
           "type": "webview",
           "icon": "$(graph)"
         },
         {
-          "id": "gitlite.commits",
+          "id": "gitviz.commits",
           "name": "Commits",
           "type": "webview",
           "icon": "$(git-commit)"
         },
         {
-          "id": "gitlite.searchCompare",
+          "id": "gitviz.searchCompare",
           "name": "Compare",
           "type": "webview",
           "icon": "$(diff)"
         },
         {
-          "id": "gitlite.stashes",
+          "id": "gitviz.stashes",
           "name": "Stashes",
           "visibility": "collapsed",
           "icon": "$(archive)"
         },
         {
-          "id": "gitlite.branches",
+          "id": "gitviz.branches",
           "name": "Branches",
           "visibility": "collapsed",
           "icon": "$(git-branch)"
         },
         {
-          "id": "gitlite.worktrees",
+          "id": "gitviz.worktrees",
           "name": "Worktrees",
           "visibility": "collapsed",
           "icon": "$(files)"
@@ -119,245 +119,245 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "gitlite.commits.showTagsOnly",
+          "command": "gitviz.commits.showTagsOnly",
           "when": "false"
         },
         {
-          "command": "gitlite.commits.showAllCommits",
+          "command": "gitviz.commits.showAllCommits",
           "when": "false"
         },
         {
-          "command": "gitlite.compare.run",
+          "command": "gitviz.compare.run",
           "when": "false"
         }
       ],
       "view/title": [
         {
-          "command": "gitlite.hotFiles.set7",
-          "when": "view == gitlite.hotFiles",
+          "command": "gitviz.hotFiles.set7",
+          "when": "view == gitviz.hotFiles",
           "group": "navigation@1"
         },
         {
-          "command": "gitlite.hotFiles.set30",
-          "when": "view == gitlite.hotFiles",
+          "command": "gitviz.hotFiles.set30",
+          "when": "view == gitviz.hotFiles",
           "group": "navigation@2"
         },
         {
-          "command": "gitlite.hotFiles.set90",
-          "when": "view == gitlite.hotFiles",
+          "command": "gitviz.hotFiles.set90",
+          "when": "view == gitviz.hotFiles",
           "group": "navigation@3"
         },
         {
-          "command": "gitlite.hotFiles.setAll",
-          "when": "view == gitlite.hotFiles",
+          "command": "gitviz.hotFiles.setAll",
+          "when": "view == gitviz.hotFiles",
           "group": "navigation@4"
         },
         {
-          "command": "gitlite.hotFiles.hideDeleted",
-          "when": "view == gitlite.hotFiles && !gitlite.hotFiles.hideDeleted",
+          "command": "gitviz.hotFiles.hideDeleted",
+          "when": "view == gitviz.hotFiles && !gitviz.hotFiles.hideDeleted",
           "group": "navigation@5"
         },
         {
-          "command": "gitlite.hotFiles.showDeleted",
-          "when": "view == gitlite.hotFiles && gitlite.hotFiles.hideDeleted",
+          "command": "gitviz.hotFiles.showDeleted",
+          "when": "view == gitviz.hotFiles && gitviz.hotFiles.hideDeleted",
           "group": "navigation@5"
         },
         {
-          "command": "gitlite.commits.showTagsOnly",
-          "when": "view == gitlite.commits && !gitlite.commits.tagsFilterActive",
+          "command": "gitviz.commits.showTagsOnly",
+          "when": "view == gitviz.commits && !gitviz.commits.tagsFilterActive",
           "group": "navigation@1"
         },
         {
-          "command": "gitlite.commits.showAllCommits",
-          "when": "view == gitlite.commits && gitlite.commits.tagsFilterActive",
+          "command": "gitviz.commits.showAllCommits",
+          "when": "view == gitviz.commits && gitviz.commits.tagsFilterActive",
           "group": "navigation@1"
         },
         {
-          "command": "gitlite.branch.create",
-          "when": "view == gitlite.branches",
+          "command": "gitviz.branch.create",
+          "when": "view == gitviz.branches",
           "group": "navigation@1"
         },
         {
-          "command": "gitlite.branches.filterUntracked",
-          "when": "view == gitlite.branches && !gitlite.branches.showUntracked",
+          "command": "gitviz.branches.filterUntracked",
+          "when": "view == gitviz.branches && !gitviz.branches.showUntracked",
           "group": "navigation@3"
         },
         {
-          "command": "gitlite.branches.showAllBranches",
-          "when": "view == gitlite.branches && gitlite.branches.showUntracked",
+          "command": "gitviz.branches.showAllBranches",
+          "when": "view == gitviz.branches && gitviz.branches.showUntracked",
           "group": "navigation@3"
         },
         {
-          "command": "gitlite.stash.create",
-          "when": "view == gitlite.stashes",
+          "command": "gitviz.stash.create",
+          "when": "view == gitviz.stashes",
           "group": "navigation@1"
         },
         {
-          "command": "gitlite.stash.dropAll",
-          "when": "view == gitlite.stashes",
+          "command": "gitviz.stash.dropAll",
+          "when": "view == gitviz.stashes",
           "group": "navigation@2"
         },
         {
-          "command": "gitlite.worktree.create",
-          "when": "view == gitlite.worktrees",
+          "command": "gitviz.worktree.create",
+          "when": "view == gitviz.worktrees",
           "group": "navigation@1"
         }
       ],
       "view/item/context": [
         {
-          "command": "gitlite.fileHistory.openAtRevision",
-          "when": "viewItem == historyEntry && (view == gitlite.fileHistory || view == gitlite.lineHistory)",
+          "command": "gitviz.fileHistory.openAtRevision",
+          "when": "viewItem == historyEntry && (view == gitviz.fileHistory || view == gitviz.lineHistory)",
           "group": "1_open@1"
         },
         {
-          "command": "gitlite.fileHistory.diffWithPrevious",
-          "when": "viewItem == historyEntry && view == gitlite.fileHistory",
+          "command": "gitviz.fileHistory.diffWithPrevious",
+          "when": "viewItem == historyEntry && view == gitviz.fileHistory",
           "group": "1_open@2"
         },
         {
-          "command": "gitlite.fileHistory.openCommitDetails",
-          "when": "viewItem == historyEntry && (view == gitlite.fileHistory || view == gitlite.lineHistory)",
+          "command": "gitviz.fileHistory.openCommitDetails",
+          "when": "viewItem == historyEntry && (view == gitviz.fileHistory || view == gitviz.lineHistory)",
           "group": "1_open@3"
         },
         {
-          "command": "gitlite.copySha",
-          "when": "viewItem == historyEntry && (view == gitlite.fileHistory || view == gitlite.lineHistory)",
+          "command": "gitviz.copySha",
+          "when": "viewItem == historyEntry && (view == gitviz.fileHistory || view == gitviz.lineHistory)",
           "group": "1_open@4"
         },
         {
-          "command": "gitlite.hotFiles.openFileHistory",
-          "when": "viewItem == hotFile && view == gitlite.hotFiles",
+          "command": "gitviz.hotFiles.openFileHistory",
+          "when": "viewItem == hotFile && view == gitviz.hotFiles",
           "group": "1_open@1"
         },
         {
-          "command": "gitlite.copySha",
-          "when": "viewItem == commit && view == gitlite.commits",
+          "command": "gitviz.copySha",
+          "when": "viewItem == commit && view == gitviz.commits",
           "group": "1_open@1"
         },
         {
-          "command": "gitlite.branch.checkout",
-          "when": "viewItem == localBranch && view == gitlite.branches",
+          "command": "gitviz.branch.checkout",
+          "when": "viewItem == localBranch && view == gitviz.branches",
           "group": "1_branch@1"
         },
         {
-          "command": "gitlite.branch.rename",
-          "when": "(viewItem == localBranch || viewItem == currentBranch) && view == gitlite.branches",
+          "command": "gitviz.branch.rename",
+          "when": "(viewItem == localBranch || viewItem == currentBranch) && view == gitviz.branches",
           "group": "1_branch@2"
         },
         {
-          "command": "gitlite.branches.cleanupUntracked",
-          "when": "viewItem == branchSectionLocal && view == gitlite.branches",
+          "command": "gitviz.branches.cleanupUntracked",
+          "when": "viewItem == branchSectionLocal && view == gitviz.branches",
           "group": "inline"
         },
         {
-          "command": "gitlite.branch.delete",
-          "when": "viewItem == localBranch && view == gitlite.branches",
+          "command": "gitviz.branch.delete",
+          "when": "viewItem == localBranch && view == gitviz.branches",
           "group": "2_destructive@1"
         },
         {
-          "command": "gitlite.stash.applyEntry",
-          "when": "viewItem == stash && view == gitlite.stashes",
+          "command": "gitviz.stash.applyEntry",
+          "when": "viewItem == stash && view == gitviz.stashes",
           "group": "inline@1"
         },
         {
-          "command": "gitlite.stash.popEntry",
-          "when": "viewItem == stash && view == gitlite.stashes",
+          "command": "gitviz.stash.popEntry",
+          "when": "viewItem == stash && view == gitviz.stashes",
           "group": "inline@2"
         },
         {
-          "command": "gitlite.stash.dropEntry",
-          "when": "viewItem == stash && view == gitlite.stashes",
+          "command": "gitviz.stash.dropEntry",
+          "when": "viewItem == stash && view == gitviz.stashes",
           "group": "inline@3"
         },
         {
-          "command": "gitlite.stash.applyEntry",
-          "when": "viewItem == stash && view == gitlite.stashes",
+          "command": "gitviz.stash.applyEntry",
+          "when": "viewItem == stash && view == gitviz.stashes",
           "group": "1_stash@1"
         },
         {
-          "command": "gitlite.stash.popEntry",
-          "when": "viewItem == stash && view == gitlite.stashes",
+          "command": "gitviz.stash.popEntry",
+          "when": "viewItem == stash && view == gitviz.stashes",
           "group": "1_stash@2"
         },
         {
-          "command": "gitlite.stash.dropEntry",
-          "when": "viewItem == stash && view == gitlite.stashes",
+          "command": "gitviz.stash.dropEntry",
+          "when": "viewItem == stash && view == gitviz.stashes",
           "group": "2_destructive@1"
         },
         {
-          "command": "gitlite.worktree.open",
-          "when": "viewItem == worktree && view == gitlite.worktrees",
+          "command": "gitviz.worktree.open",
+          "when": "viewItem == worktree && view == gitviz.worktrees",
           "group": "1_worktree@1"
         },
         {
-          "command": "gitlite.worktree.delete",
-          "when": "viewItem == worktree && view == gitlite.worktrees",
+          "command": "gitviz.worktree.delete",
+          "when": "viewItem == worktree && view == gitviz.worktrees",
           "group": "inline"
         },
         {
-          "command": "gitlite.worktree.delete",
-          "when": "viewItem == worktree && view == gitlite.worktrees",
+          "command": "gitviz.worktree.delete",
+          "when": "viewItem == worktree && view == gitviz.worktrees",
           "group": "2_destructive@1"
         }
       ]
     },
     "commands": [
       {
-        "command": "gitlite.toggleBlame",
-        "title": "GitLite: Toggle Inline Blame"
+        "command": "gitviz.toggleBlame",
+        "title": "GitViz: Toggle Inline Blame"
       },
       {
-        "command": "gitlite.toggleHeatmap",
-        "title": "GitLite: Toggle Line Heatmap"
+        "command": "gitviz.toggleHeatmap",
+        "title": "GitViz: Toggle Line Heatmap"
       },
       {
-        "command": "gitlite.copySha",
+        "command": "gitviz.copySha",
         "title": "Copy Commit SHA"
       },
       {
-        "command": "gitlite.openCommitDetails",
-        "title": "GitLite: Open Commit Details"
+        "command": "gitviz.openCommitDetails",
+        "title": "GitViz: Open Commit Details"
       },
       {
-        "command": "gitlite.openCommitGraph",
-        "title": "GitLite: Open Commit Graph",
+        "command": "gitviz.openCommitGraph",
+        "title": "GitViz: Open Commit Graph",
         "icon": "$(type-hierarchy)"
       },
       {
-        "command": "gitlite.startInteractiveRebase",
-        "title": "GitLite: Start Interactive Rebase"
+        "command": "gitviz.startInteractiveRebase",
+        "title": "GitViz: Start Interactive Rebase"
       },
       {
-        "command": "gitlite.revertCommit",
-        "title": "GitLite: Revert Commit"
+        "command": "gitviz.revertCommit",
+        "title": "GitViz: Revert Commit"
       },
       {
-        "command": "gitlite.diffWithPrevious",
-        "title": "GitLite: Diff with Previous Commit"
+        "command": "gitviz.diffWithPrevious",
+        "title": "GitViz: Diff with Previous Commit"
       },
       {
-        "command": "gitlite.revealCommit",
-        "title": "GitLite: Reveal Commit in Commits View"
+        "command": "gitviz.revealCommit",
+        "title": "GitViz: Reveal Commit in Commits View"
       },
       {
-        "command": "gitlite.openLineHistory",
-        "title": "GitLite: Show Line History",
+        "command": "gitviz.openLineHistory",
+        "title": "GitViz: Show Line History",
         "icon": "$(history)"
       },
       {
-        "command": "gitlite.fileHistory.openAtRevision",
+        "command": "gitviz.fileHistory.openAtRevision",
         "title": "Open at This Revision"
       },
       {
-        "command": "gitlite.fileHistory.diffWithPrevious",
+        "command": "gitviz.fileHistory.diffWithPrevious",
         "title": "Diff with Previous Commit"
       },
       {
-        "command": "gitlite.fileHistory.openCommitDetails",
+        "command": "gitviz.fileHistory.openCommitDetails",
         "title": "Show Commit Details"
       },
       {
-        "command": "gitlite.hotFiles.set7",
+        "command": "gitviz.hotFiles.set7",
         "title": "Last 7 Days",
         "icon": {
           "dark": "icons/tf-7d-dark.svg",
@@ -365,7 +365,7 @@
         }
       },
       {
-        "command": "gitlite.hotFiles.set30",
+        "command": "gitviz.hotFiles.set30",
         "title": "Last 30 Days",
         "icon": {
           "dark": "icons/tf-30d-dark.svg",
@@ -373,7 +373,7 @@
         }
       },
       {
-        "command": "gitlite.hotFiles.set90",
+        "command": "gitviz.hotFiles.set90",
         "title": "Last 90 Days",
         "icon": {
           "dark": "icons/tf-90d-dark.svg",
@@ -381,7 +381,7 @@
         }
       },
       {
-        "command": "gitlite.hotFiles.setAll",
+        "command": "gitviz.hotFiles.setAll",
         "title": "All Time",
         "icon": {
           "dark": "icons/tf-all-dark.svg",
@@ -389,127 +389,127 @@
         }
       },
       {
-        "command": "gitlite.hotFiles.hideDeleted",
+        "command": "gitviz.hotFiles.hideDeleted",
         "title": "Hide Files Deleted from Repo",
         "icon": "$(eye-closed)"
       },
       {
-        "command": "gitlite.hotFiles.showDeleted",
+        "command": "gitviz.hotFiles.showDeleted",
         "title": "Show Files Deleted from Repo",
         "icon": "$(eye)"
       },
       {
-        "command": "gitlite.hotFiles.openFileHistory",
+        "command": "gitviz.hotFiles.openFileHistory",
         "title": "Open File History"
       },
       {
-        "command": "gitlite.lineHistory.openDiff",
+        "command": "gitviz.lineHistory.openDiff",
         "title": "Open Diff at This Commit"
       },
       {
-        "command": "gitlite.branch.checkout",
+        "command": "gitviz.branch.checkout",
         "title": "Switch to Branch"
       },
       {
-        "command": "gitlite.branch.create",
+        "command": "gitviz.branch.create",
         "title": "Create Branch",
         "icon": "$(add)"
       },
       {
-        "command": "gitlite.branch.delete",
+        "command": "gitviz.branch.delete",
         "title": "Delete Branch",
         "icon": "$(trash)"
       },
       {
-        "command": "gitlite.branch.rename",
+        "command": "gitviz.branch.rename",
         "title": "Rename Branch"
       },
       {
-        "command": "gitlite.branches.filterUntracked",
+        "command": "gitviz.branches.filterUntracked",
         "title": "Show Branches Without Upstream",
         "icon": "$(eye-closed)"
       },
       {
-        "command": "gitlite.branches.showAllBranches",
+        "command": "gitviz.branches.showAllBranches",
         "title": "Show All Branches",
         "icon": "$(eye)"
       },
       {
-        "command": "gitlite.branches.cleanupUntracked",
+        "command": "gitviz.branches.cleanupUntracked",
         "title": "Delete Branches Without Upstream",
         "icon": "$(trash)"
       },
       {
-        "command": "gitlite.commits.showTagsOnly",
+        "command": "gitviz.commits.showTagsOnly",
         "title": "Show Tagged Commits Only",
         "icon": "$(tag)"
       },
       {
-        "command": "gitlite.commits.showAllCommits",
+        "command": "gitviz.commits.showAllCommits",
         "title": "Show All Commits",
         "icon": "$(list-unordered)"
       },
       {
-        "command": "gitlite.tag.create",
-        "title": "GitLite: Create Tag",
+        "command": "gitviz.tag.create",
+        "title": "GitViz: Create Tag",
         "icon": "$(add)"
       },
       {
-        "command": "gitlite.tag.delete",
-        "title": "GitLite: Delete Tag"
+        "command": "gitviz.tag.delete",
+        "title": "GitViz: Delete Tag"
       },
       {
-        "command": "gitlite.stash.create",
+        "command": "gitviz.stash.create",
         "title": "Create Stash",
         "icon": "$(add)"
       },
       {
-        "command": "gitlite.stash.dropAll",
+        "command": "gitviz.stash.dropAll",
         "title": "Drop All Stashes",
         "icon": "$(trash)"
       },
       {
-        "command": "gitlite.stash.openDetails",
+        "command": "gitviz.stash.openDetails",
         "title": "Open Stash Details"
       },
       {
-        "command": "gitlite.stash.applyEntry",
+        "command": "gitviz.stash.applyEntry",
         "title": "Apply Stash",
         "icon": "$(arrow-down)"
       },
       {
-        "command": "gitlite.stash.popEntry",
+        "command": "gitviz.stash.popEntry",
         "title": "Pop Stash",
         "icon": "$(arrow-circle-down)"
       },
       {
-        "command": "gitlite.stash.dropEntry",
+        "command": "gitviz.stash.dropEntry",
         "title": "Drop Stash",
         "icon": "$(trash)"
       },
       {
-        "command": "gitlite.compare.run",
-        "title": "GitLite: Compare Refs"
+        "command": "gitviz.compare.run",
+        "title": "GitViz: Compare Refs"
       },
       {
-        "command": "gitlite.worktree.create",
+        "command": "gitviz.worktree.create",
         "title": "Create Worktree",
         "icon": "$(add)"
       },
       {
-        "command": "gitlite.worktree.open",
+        "command": "gitviz.worktree.open",
         "title": "Open in New Window",
         "icon": "$(link-external)"
       },
       {
-        "command": "gitlite.worktree.delete",
+        "command": "gitviz.worktree.delete",
         "title": "Delete Worktree",
         "icon": "$(trash)"
       }
     ],
     "colors": [
       {
-        "id": "gitlite.hotFile.heatHigh",
+        "id": "gitviz.hotFile.heatHigh",
         "description": "Color for the most frequently changed files in the Hot Files view.",
         "defaults": {
           "dark": "#b8784e",
@@ -518,7 +518,7 @@
         }
       },
       {
-        "id": "gitlite.hotFile.heatMedium",
+        "id": "gitviz.hotFile.heatMedium",
         "description": "Color for moderately changed files in the Hot Files view.",
         "defaults": {
           "dark": "#9e8a42",
@@ -527,7 +527,7 @@
         }
       },
       {
-        "id": "gitlite.hotFile.heatLow",
+        "id": "gitviz.hotFile.heatLow",
         "description": "Color for less frequently changed files in the Hot Files view.",
         "defaults": {
           "dark": "#4488bb",
@@ -537,19 +537,19 @@
       }
     ],
     "configuration": {
-      "title": "GitLite",
+      "title": "GitViz",
       "properties": {
-        "gitlite.blame.enabled": {
+        "gitviz.blame.enabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable/disable all inline blame annotations."
         },
-        "gitlite.blame.format": {
+        "gitviz.blame.format": {
           "type": "string",
           "default": "{author}, {date} · {message|60}",
           "description": "Format string for inline blame. Tokens: {author}, {authorEmail}, {date}, {sha}, {message|N} (truncate to N chars)."
         },
-        "gitlite.blame.dateFormat": {
+        "gitviz.blame.dateFormat": {
           "type": "string",
           "enum": [
             "relative",
@@ -559,42 +559,42 @@
           "default": "relative",
           "description": "Date format for blame annotations."
         },
-        "gitlite.blame.highlightLine": {
+        "gitviz.blame.highlightLine": {
           "type": "boolean",
           "default": false,
           "description": "Highlight the current line's age in the gutter."
         },
-        "gitlite.blame.maxLines": {
+        "gitviz.blame.maxLines": {
           "type": "number",
           "default": 10000,
           "description": "Skip blame for files larger than this many lines."
         },
-        "gitlite.blame.maxFileSizeKb": {
+        "gitviz.blame.maxFileSizeKb": {
           "type": "number",
           "default": 1024,
           "description": "Skip blame for files larger than this size in kilobytes."
         },
-        "gitlite.heatmap.enabled": {
+        "gitviz.heatmap.enabled": {
           "type": "boolean",
           "default": false,
           "description": "Enable line heatmap showing age of each line."
         },
-        "gitlite.heatmap.hotColor": {
+        "gitviz.heatmap.hotColor": {
           "type": "string",
           "default": "#ff6600",
           "description": "Hex color for the most recently changed lines."
         },
-        "gitlite.heatmap.coldColor": {
+        "gitviz.heatmap.coldColor": {
           "type": "string",
           "default": "#0066ff",
           "description": "Hex color for the oldest lines."
         },
-        "gitlite.heatmap.ageThresholdDays": {
+        "gitviz.heatmap.ageThresholdDays": {
           "type": "number",
           "default": 365,
           "description": "Number of days before a line reaches the coldest heatmap color."
         },
-        "gitlite.history.maxCommits": {
+        "gitviz.history.maxCommits": {
           "type": "number",
           "default": 500,
           "description": "Maximum number of commits to show in File History and Line History views. Increase for larger repositories."

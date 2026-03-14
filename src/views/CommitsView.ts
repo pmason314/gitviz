@@ -5,7 +5,7 @@ import { GitService } from '../git/GitService';
 import { CommitEntry, TagInfo } from '../git/types';
 
 export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposable {
-    public static readonly viewType = 'gitlite.commits';
+    public static readonly viewType = 'gitviz.commits';
 
     private _view?: vscode.WebviewView;
     private cachedCommits: CommitEntry[] = [];
@@ -18,20 +18,20 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
         try {
             this.cachedCommits = await this.gitService.getCommitsOnBranch(undefined, 200);
         } catch (err) {
-            console.error('[GitLite] CommitsView: failed to load commits', err);
+            console.error('[GitViz] CommitsView: failed to load commits', err);
             this.cachedCommits = [];
         }
         try {
             const contributors = await this.gitService.getContributors();
             this.cachedAuthors = contributors.map(c => c.name).filter(Boolean);
         } catch (err) {
-            console.error('[GitLite] CommitsView: failed to load contributors', err);
+            console.error('[GitViz] CommitsView: failed to load contributors', err);
             this.cachedAuthors = [];
         }
         try {
             this.cachedTags = await this.gitService.getTags();
         } catch (err) {
-            console.error('[GitLite] CommitsView: failed to load tags', err);
+            console.error('[GitViz] CommitsView: failed to load tags', err);
             this.cachedTags = [];
         }
         this._sendUpdate();
@@ -52,18 +52,18 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
             switch (msg.type) {
                 case 'openCommitDetails':
                     if (msg.sha) {
-                        await vscode.commands.executeCommand('gitlite.openCommitDetails', msg.sha);
+                        await vscode.commands.executeCommand('gitviz.openCommitDetails', msg.sha);
                     }
                     break;
                 case 'openGraph':
                     if (msg.sha) {
-                        await vscode.commands.executeCommand('gitlite.openCommitGraph', msg.sha);
+                        await vscode.commands.executeCommand('gitviz.openCommitGraph', msg.sha);
                     }
                     break;
                 case 'copySha':
                     if (msg.sha) {
                         await vscode.env.clipboard.writeText(msg.sha);
-                        vscode.window.showInformationMessage(`GitLite: Copied ${msg.sha.slice(0, 7)} to clipboard.`);
+                        vscode.window.showInformationMessage(`GitViz: Copied ${msg.sha.slice(0, 7)} to clipboard.`);
                     }
                     break;
                 case 'requestCreateTag': {
@@ -85,7 +85,7 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
                         await this.refresh();
                         await this.promptAndPushTag(tagName.trim());
                     } catch (err) {
-                        vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+                        vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
                     }
                     break;
                 }
@@ -98,9 +98,9 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
                     try {
                         await this.gitService.deleteTag(msg.name);
                         await this.refresh();
-                        vscode.window.showInformationMessage(`GitLite: Tag \"${msg.name}\" deleted.`);
+                        vscode.window.showInformationMessage(`GitViz: Tag \"${msg.name}\" deleted.`);
                     } catch (err) {
-                        vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+                        vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
                     }
                     break;
                 }
@@ -176,11 +176,11 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
         try {
             remotes = await this.gitService.getRemotes();
         } catch {
-            vscode.window.showInformationMessage(`GitLite: Tag "${tagName}" created.`);
+            vscode.window.showInformationMessage(`GitViz: Tag "${tagName}" created.`);
             return;
         }
         if (!remotes.length) {
-            vscode.window.showInformationMessage(`GitLite: Tag "${tagName}" created.`);
+            vscode.window.showInformationMessage(`GitViz: Tag "${tagName}" created.`);
             return;
         }
         let remote: string;
@@ -200,9 +200,9 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
         }
         try {
             await this.gitService.pushTag(tagName, remote);
-            vscode.window.showInformationMessage(`GitLite: Tag "${tagName}" pushed to ${remote}.`);
+            vscode.window.showInformationMessage(`GitViz: Tag "${tagName}" pushed to ${remote}.`);
         } catch (err) {
-            vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+            vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
         }
     }
 

@@ -3,13 +3,13 @@ import * as vscode from 'vscode';
 export type DateFormat = 'relative' | 'absolute' | 'iso';
 
 /**
- * Typed wrapper around vscode.workspace.getConfiguration('gitlite').
+ * Typed wrapper around vscode.workspace.getConfiguration('gitviz').
  * All consuming code accesses settings through named accessors here so that
  * key strings are never scattered through the codebase.
  */
 export class Config {
     private get<T>(key: string, fallback: T): T {
-        return vscode.workspace.getConfiguration('gitlite').get<T>(key) ?? fallback;
+        return vscode.workspace.getConfiguration('gitviz').get<T>(key) ?? fallback;
     }
 
     // Blame
@@ -34,12 +34,12 @@ export class Config {
     commitCacheMaxEntries(): number { return this.get('cache.commitMaxEntries', 200); }
 
     /**
-     * Subscribe to any gitlite.* configuration change.
+     * Subscribe to any gitviz.* configuration change.
      * Returns the disposable so callers can add it to their subscriptions.
      */
     onDidChange(handler: () => void): vscode.Disposable {
         return vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration('gitlite')) {
+            if (e.affectsConfiguration('gitviz')) {
                 handler();
             }
         });

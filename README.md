@@ -1,4 +1,4 @@
-# GitLite
+# GitViz
 
 A fast, lightweight, and completely free VS Code extension that brings powerful Git annotations, useful visualizations, and easy repository exploration to your editor — without forced account linking, AI integration, or telemetry.  Heavily inspired by [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens).
 
@@ -10,7 +10,7 @@ A fast, lightweight, and completely free VS Code extension that brings powerful 
 - **Hover details** — rich popup over any blamed line with full commit info, diff stats, and action buttons (open diff, copy SHA, reveal in Commits view)
 - **Line heatmap** — color-coded line backgrounds showing the relative age of every line in the file, from hot (recent) to cold (old)
 
-### Sidebar Views (GitLite activity bar panel)
+### Sidebar Views (GitViz activity bar panel)
 
 - **File History** — full commit history for the currently open file, with tags highlighted in tooltips; opens diff or commit details on click
 - **Line History** — commit history scoped to the selected line range, updating live as you move the cursor
@@ -37,34 +37,34 @@ A fast, lightweight, and completely free VS Code extension that brings powerful 
 
 ## Settings
 
-All settings are under the `gitlite.*` namespace and configurable via **Settings** (`Ctrl+,`).
+All settings are under the `gitviz.*` namespace and configurable via **Settings** (`Ctrl+,`).
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `gitlite.blame.enabled` | `true` | Enable inline blame annotations |
-| `gitlite.blame.format` | `{author}, {date} · {message\|60}` | Format string; tokens: `{author}`, `{authorEmail}`, `{date}`, `{sha}`, `{message\|N}` |
-| `gitlite.blame.dateFormat` | `relative` | `relative`, `absolute`, or `iso` |
-| `gitlite.blame.maxLines` | `10000` | Skip blame for files over this many lines |
-| `gitlite.blame.maxFileSizeKb` | `1024` | Skip blame for files over this size (KB) |
-| `gitlite.heatmap.enabled` | `false` | Enable line heatmap |
-| `gitlite.heatmap.hotColor` | `#ff6600` | Color for recently changed lines |
-| `gitlite.heatmap.coldColor` | `#0066ff` | Color for old lines |
-| `gitlite.heatmap.ageThresholdDays` | `365` | Days until a line reaches the coldest color in the line heatmap |
-| `gitlite.history.maxCommits` | `500` | Max commits shown in File/Line History |
+| `gitviz.blame.enabled` | `true` | Enable inline blame annotations |
+| `gitviz.blame.format` | `{author}, {date} · {message\|60}` | Format string; tokens: `{author}`, `{authorEmail}`, `{date}`, `{sha}`, `{message\|N}` |
+| `gitviz.blame.dateFormat` | `relative` | `relative`, `absolute`, or `iso` |
+| `gitviz.blame.maxLines` | `10000` | Skip blame for files over this many lines |
+| `gitviz.blame.maxFileSizeKb` | `1024` | Skip blame for files over this size (KB) |
+| `gitviz.heatmap.enabled` | `false` | Enable line heatmap |
+| `gitviz.heatmap.hotColor` | `#ff6600` | Color for recently changed lines |
+| `gitviz.heatmap.coldColor` | `#0066ff` | Color for old lines |
+| `gitviz.heatmap.ageThresholdDays` | `365` | Days until a line reaches the coldest color in the line heatmap |
+| `gitviz.history.maxCommits` | `500` | Max commits shown in File/Line History |
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `GitLite: Toggle Inline Blame` | Show/hide inline blame annotations |
-| `GitLite: Toggle Line Heatmap` | Show/hide the line heatmap |
-| `GitLite: Open Commit Graph` | Open the Commit Graph panel |
-| `GitLite: Open Commit Details` | Open the Commit Details panel for a SHA |
-| `GitLite: Show Line History` | Open Line History for the current selection |
-| `GitLite: Compare Refs` | Open the Compare view |
-| `GitLite: Start Interactive Rebase` | Begin an interactive rebase |
-| `GitLite: Revert Commit` | Revert a commit |
-| `GitLite: Create Tag` | Create a tag at a commit |
+| `GitViz: Toggle Inline Blame` | Show/hide inline blame annotations |
+| `GitViz: Toggle Line Heatmap` | Show/hide the line heatmap |
+| `GitViz: Open Commit Graph` | Open the Commit Graph panel |
+| `GitViz: Open Commit Details` | Open the Commit Details panel for a SHA |
+| `GitViz: Show Line History` | Open Line History for the current selection |
+| `GitViz: Compare Refs` | Open the Compare view |
+| `GitViz: Start Interactive Rebase` | Begin an interactive rebase |
+| `GitViz: Revert Commit` | Revert a commit |
+| `GitViz: Create Tag` | Create a tag at a commit |
 
 ## Building from Source
 

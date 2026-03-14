@@ -9,7 +9,7 @@ import { makeRevisionUri } from '../editors/RevisionContentProvider';
  * metadata, body, changed files with +/- counts, and per-file diff links.
  */
 export class CommitDetailsPanel implements vscode.Disposable {
-    private static readonly VIEW_TYPE = 'gitlite.commitDetails';
+    private static readonly VIEW_TYPE = 'gitviz.commitDetails';
 
     private panel: vscode.WebviewPanel | undefined;
     private readonly disposables: vscode.Disposable[] = [];
@@ -29,7 +29,7 @@ export class CommitDetailsPanel implements vscode.Disposable {
             this.panel.webview.onDidReceiveMessage(
                 (msg: { command: string; path?: string; sha?: string }) =>
                     this.handleMessage(msg).catch((err: Error) => {
-                        vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+                        vscode.window.showErrorMessage(`GitViz: ${err.message}`);
                     }),
                 null,
                 this.disposables
@@ -69,7 +69,7 @@ export class CommitDetailsPanel implements vscode.Disposable {
             const viewColumn = this.panel?.viewColumn ?? vscode.ViewColumn.Active;
             await vscode.commands.executeCommand('vscode.diff', prevUri, currUri, title, { viewColumn });
         } else if (msg.command === 'revealCommit' && msg.sha) {
-            await vscode.commands.executeCommand('gitlite.revealCommit', msg.sha);
+            await vscode.commands.executeCommand('gitviz.revealCommit', msg.sha);
         } else if (msg.command === 'copySha' && msg.sha) {
             await vscode.env.clipboard.writeText(msg.sha);
         }

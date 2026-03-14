@@ -95,9 +95,9 @@ export class BlameHoverProvider implements vscode.HoverProvider, vscode.Disposab
         lines.push(
             '---',
             '',
-            `[$(clippy) Copy SHA](command:gitlite.copySha?${copyShaArg}) ` +
-            `&nbsp; [$(eye) Show Commit Details](command:gitlite.openCommitDetails?${openDetailsArg}) ` +
-            `&nbsp; [$(diff) Diff with Previous](command:gitlite.diffWithPrevious?${diffArg}) &nbsp;`
+            `[$(clippy) Copy SHA](command:gitviz.copySha?${copyShaArg}) ` +
+            `&nbsp; [$(eye) Show Commit Details](command:gitviz.openCommitDetails?${openDetailsArg}) ` +
+            `&nbsp; [$(diff) Diff with Previous](command:gitviz.diffWithPrevious?${diffArg}) &nbsp;`
         );
 
         const md = new vscode.MarkdownString(lines.join('\n'), true);
@@ -134,7 +134,7 @@ function buildCommitSection(
     const lines: string[] = [
         `**${heading}**`,
         '',
-        `**${displayName}** $(history) ${relDate} *(${absDate})* via [${shortSha}](command:gitlite.revealCommit?${revealArg})`,
+        `**${displayName}** $(history) ${relDate} *(${absDate})* via [${shortSha}](command:gitviz.revealCommit?${revealArg})`,
         '',
         quotedMessage,
         '',

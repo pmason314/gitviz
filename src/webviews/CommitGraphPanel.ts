@@ -8,7 +8,7 @@ import { GitService } from '../git/GitService';
  * Opened as an editor tab; shows all local branches + their upstream remotes.
  */
 export class CommitGraphPanel implements vscode.Disposable {
-    private static readonly VIEW_TYPE = 'gitlite.commitGraph';
+    private static readonly VIEW_TYPE = 'gitviz.commitGraph';
     private static instance: CommitGraphPanel | undefined;
 
     private panel: vscode.WebviewPanel | undefined;
@@ -81,14 +81,14 @@ export class CommitGraphPanel implements vscode.Disposable {
 
             case 'openDetails':
                 if (typeof msg.sha === 'string') {
-                    await vscode.commands.executeCommand('gitlite.openCommitDetails', msg.sha);
+                    await vscode.commands.executeCommand('gitviz.openCommitDetails', msg.sha);
                 }
                 break;
 
             case 'copySha':
                 if (typeof msg.sha === 'string') {
                     await vscode.env.clipboard.writeText(msg.sha);
-                    vscode.window.showInformationMessage(`GitLite: Copied ${msg.sha.slice(0, 7)} to clipboard.`);
+                    vscode.window.showInformationMessage(`GitViz: Copied ${msg.sha.slice(0, 7)} to clipboard.`);
                 }
                 break;
 
@@ -98,9 +98,9 @@ export class CommitGraphPanel implements vscode.Disposable {
                 try {
                     await this.gitService.checkoutRef(ref);
                     await this.open();
-                    await vscode.commands.executeCommand('gitlite.refreshAll');
+                    await vscode.commands.executeCommand('gitviz.refreshAll');
                 } catch (err) {
-                    vscode.window.showErrorMessage(`GitLite: Checkout failed — ${(err as Error).message}`);
+                    vscode.window.showErrorMessage(`GitViz: Checkout failed — ${(err as Error).message}`);
                 }
                 break;
             }
@@ -117,9 +117,9 @@ export class CommitGraphPanel implements vscode.Disposable {
                 try {
                     await this.gitService.createBranchFrom(sha, name.trim());
                     await this.open(sha);
-                    await vscode.commands.executeCommand('gitlite.refreshAll');
+                    await vscode.commands.executeCommand('gitviz.refreshAll');
                 } catch (err) {
-                    vscode.window.showErrorMessage(`GitLite: Create branch failed — ${(err as Error).message}`);
+                    vscode.window.showErrorMessage(`GitViz: Create branch failed — ${(err as Error).message}`);
                 }
                 break;
             }
@@ -135,9 +135,9 @@ export class CommitGraphPanel implements vscode.Disposable {
                 try {
                     await this.gitService.cherryPick(sha);
                     await this.open();
-                    await vscode.commands.executeCommand('gitlite.refreshAll');
+                    await vscode.commands.executeCommand('gitviz.refreshAll');
                 } catch (err) {
-                    vscode.window.showErrorMessage(`GitLite: Cherry-pick failed — ${(err as Error).message}`);
+                    vscode.window.showErrorMessage(`GitViz: Cherry-pick failed — ${(err as Error).message}`);
                 }
                 break;
             }
@@ -164,9 +164,9 @@ export class CommitGraphPanel implements vscode.Disposable {
                 try {
                     await this.gitService.resetToCommit(sha, mode.value);
                     await this.open(sha);
-                    await vscode.commands.executeCommand('gitlite.refreshAll');
+                    await vscode.commands.executeCommand('gitviz.refreshAll');
                 } catch (err) {
-                    vscode.window.showErrorMessage(`GitLite: Reset failed — ${(err as Error).message}`);
+                    vscode.window.showErrorMessage(`GitViz: Reset failed — ${(err as Error).message}`);
                 }
                 break;
             }

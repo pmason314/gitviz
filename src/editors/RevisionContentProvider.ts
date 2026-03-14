@@ -2,12 +2,12 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { GitService } from '../git/GitService';
 
-export const REVISION_SCHEME = 'gitlite';
+export const REVISION_SCHEME = 'gitviz';
 
 /**
  * Build a virtual URI for a file at a specific git revision.
  *
- * Format:  gitlite://{sha}/{relative/path/to/file}
+ * Format:  gitviz://{sha}/{relative/path/to/file}
  *
  * `sha` may be any git revision: a 40-char hash, `HEAD~1`, `abc123~1`, etc.
  * The `~` character is an RFC 3986 unreserved character so it round-trips
@@ -28,7 +28,7 @@ export function makeRevisionUri(repoRoot: string, sha: string, absFilePath: stri
 
 /**
  * TextDocumentContentProvider that serves the content of any file
- * at any git revision using the `gitlite:` URI scheme.
+ * at any git revision using the `gitviz:` URI scheme.
  */
 export class RevisionContentProvider
     implements vscode.TextDocumentContentProvider, vscode.Disposable

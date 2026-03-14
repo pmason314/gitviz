@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 export class HotFilesSearchView implements vscode.WebviewViewProvider, vscode.Disposable {
-    public static readonly viewType = 'gitlite.hotFilesSearch';
+    public static readonly viewType = 'gitviz.hotFilesSearch';
 
     private _view?: vscode.WebviewView;
     private _onDidChangeFilter = new vscode.EventEmitter<string>();

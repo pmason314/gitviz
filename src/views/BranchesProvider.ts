@@ -53,7 +53,7 @@ export class BranchesProvider
         try {
             this.localBranches = await this.gitService.getBranches();
         } catch (err) {
-            console.error('[GitLite] BranchesProvider: failed to load local branches', err);
+            console.error('[GitViz] BranchesProvider: failed to load local branches', err);
             this.localBranches = [];
         }
 
@@ -70,7 +70,7 @@ export class BranchesProvider
                 }))
             );
         } catch (err) {
-            console.error('[GitLite] BranchesProvider: failed to load remote branches', err);
+            console.error('[GitViz] BranchesProvider: failed to load remote branches', err);
             this.remoteBranches = [];
         }
 
@@ -125,7 +125,7 @@ export class BranchesProvider
         item.iconPath = new vscode.ThemeIcon('cloud');
         item.contextValue = 'remoteBranch';
         item.command = {
-            command: 'gitlite.openCommitDetails',
+            command: 'gitviz.openCommitDetails',
             title: 'Open Commit Details',
             arguments: [element.sha],
         };

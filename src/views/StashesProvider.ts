@@ -19,7 +19,7 @@ export class StashesProvider
             const entries = await this.gitService.getStashes();
             this.stashes = entries.map(s => ({ ...s, contextValue: 'stash' as const }));
         } catch (err) {
-            console.error('[GitLite] StashesProvider: failed to load stashes', err);
+            console.error('[GitViz] StashesProvider: failed to load stashes', err);
             this.stashes = [];
         }
         this._onDidChangeTreeData.fire();
@@ -36,7 +36,7 @@ export class StashesProvider
         item.iconPath = new vscode.ThemeIcon('inbox');
         item.contextValue = 'stash';
         item.command = {
-            command: 'gitlite.stash.openDetails',
+            command: 'gitviz.stash.openDetails',
             title: 'Open Stash Details',
             arguments: [element],
         };

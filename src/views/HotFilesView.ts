@@ -37,7 +37,7 @@ function matchesFilter(filePath: string, filter: string): boolean {
 }
 
 export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposable {
-    public static readonly viewType = 'gitlite.hotFiles';
+    public static readonly viewType = 'gitviz.hotFiles';
 
     private _view?: vscode.WebviewView;
     private _onActiveTimeframeChanged = new vscode.EventEmitter<string>();
@@ -71,7 +71,7 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
                 case 'openFileHistory': {
                     if (!msg.path) { break; }
                     await vscode.commands.executeCommand(
-                        'gitlite.hotFiles.openFileHistory',
+                        'gitviz.hotFiles.openFileHistory',
                         { path: msg.path } as HotFileEntry,
                     );
                     break;

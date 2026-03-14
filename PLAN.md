@@ -1,11 +1,11 @@
-# GitLite — Lightweight GitLens Alternative
+# GitViz — Lightweight GitLens Alternative
 ## Project Plan
 
 ---
 
 ## Overview
 
-**GitLite** is a VS Code extension that recreates the core developer-facing features of GitLens
+**GitViz** is a VS Code extension that recreates the core developer-facing features of GitLens
 without cloud sync, AI features, adware, or telemetry. It targets developers who want powerful
 Git insight directly in their editor — annotations, history, repository exploration, and power
 Git operations — all fast, local, and free.
@@ -17,7 +17,7 @@ Git operations — all fast, local, and free.
 ## Architecture
 
 ```
-gitlite/
+gitviz/
 ├── src/
 │   ├── extension.ts              # Entry point: activate(), deactivate(), wire everything up
 │   ├── git/
@@ -110,7 +110,7 @@ gitlite/
   - Triggered via command or selection context menu
   - Shows all commits that last changed any line in the selection
 - **Open Previous Revision** — open a read-only virtual document of the file at any prior commit
-  - Uses `vscode.workspace.registerTextDocumentContentProvider` with a `gitlite:` URI scheme
+  - Uses `vscode.workspace.registerTextDocumentContentProvider` with a `gitviz:` URI scheme
   - Allows "compare with current" using VS Code's built-in diff editor
 - **Diff with Previous** — one-click command to show `git diff {commit}^..{commit} -- {file}` in VS Code diff editor
   - Available from: status bar click, hover popup buttons, history view context menu
@@ -120,7 +120,7 @@ gitlite/
   - Click any file to open diff for that file at that commit
 - **Hot Files view** — sidebar `TreeDataProvider` showing the most frequently edited files
   - Timeframe picker (view title bar button): Last 7 days / Last 30 days / Last 90 days / All time
-  - Optional commit range mode: compare between two refs via `gitlite.setHotFilesRange` command
+  - Optional commit range mode: compare between two refs via `gitviz.setHotFilesRange` command
   - Each item shows: relative file path, commit count badge, top contributor name
   - Click → opens the file; context menu → Open File History
   - New `GitService.getHotFiles(since: Date | null): Promise<{path: string, count: number}[]>`
@@ -135,7 +135,7 @@ gitlite/
 ### Key Implementation Notes
 - `git log --follow --format="%H|%an|%ae|%ar|%s" -- {file}` for file history
 - `git log -L {start},{end}:{file}` for line history (this can be slow on large repos — add a timeout)
-- Virtual documents are keyed by `gitlite:{repo}?{sha}:{filepath}` URI
+- Virtual documents are keyed by `gitviz:{repo}?{sha}:{filepath}` URI
 - Cache commit details in `CommitCache` (LRU, cap at 200 entries)
 
 ---
@@ -144,7 +144,7 @@ gitlite/
 **Goal:** A rich, explorable view of the entire repository from the sidebar.
 
 ### Activity Bar Container
-A single "GitLite" activity bar icon housing multiple `TreeView` panels:
+A single "GitViz" activity bar icon housing multiple `TreeView` panels:
 
 | View | Description |
 |------|-------------|
@@ -215,7 +215,7 @@ Deferred — approach (D3.js WebView vs canvas-rendered DAG vs simple tree) to b
 - `commands.executeCommand('vscode.openFolder', ...)` for opening
 
 ### 4d. Revert Command
-- Command palette: "GitLite: Revert Commit"
+- Command palette: "GitViz: Revert Commit"
 - Shows quick pick of recent commits (last 50 on current branch)
 - Runs `git revert {sha} --no-edit`; surfaces errors in notification
 
@@ -223,38 +223,38 @@ Deferred — approach (D3.js WebView vs canvas-rendered DAG vs simple tree) to b
 
 ## Phase 5 — Settings & Polish
 
-### Settings (all under `gitlite.*` namespace, native VS Code settings UI)
+### Settings (all under `gitviz.*` namespace, native VS Code settings UI)
 
 **Annotations**
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `gitlite.blame.enabled` | boolean | true | Enable/disable all inline blame |
-| `gitlite.blame.format` | string | `{author}, {date} · {message\|60}` | Inline blame format string |
-| `gitlite.blame.dateFormat` | enum | `relative` | `relative`, `absolute`, `iso` |
-| `gitlite.blame.highlightLine` | boolean | false | Highlight current line's age in gutter |
-| `gitlite.heatmap.enabled` | boolean | true | Enable line heatmap |
-| `gitlite.heatmap.hotColor` | string | `#ff6600` | Color for most-recent changes |
-| `gitlite.heatmap.coldColor` | string | `#0066ff` | Color for oldest changes |
-| `gitlite.heatmap.ageThresholdDays` | number | 365 | Days before hitting coldest color |
+| `gitviz.blame.enabled` | boolean | true | Enable/disable all inline blame |
+| `gitviz.blame.format` | string | `{author}, {date} · {message\|60}` | Inline blame format string |
+| `gitviz.blame.dateFormat` | enum | `relative` | `relative`, `absolute`, `iso` |
+| `gitviz.blame.highlightLine` | boolean | false | Highlight current line's age in gutter |
+| `gitviz.heatmap.enabled` | boolean | true | Enable line heatmap |
+| `gitviz.heatmap.hotColor` | string | `#ff6600` | Color for most-recent changes |
+| `gitviz.heatmap.coldColor` | string | `#0066ff` | Color for oldest changes |
+| `gitviz.heatmap.ageThresholdDays` | number | 365 | Days before hitting coldest color |
 
 **CodeLens**
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `gitlite.codelens.enabled` | boolean | true | Enable/disable CodeLens |
-| `gitlite.codelens.scopes` | array | `["functions","classes"]` | Where to show: `files`, `classes`, `functions`, `blocks` |
-| `gitlite.codelens.showAuthors` | boolean | true | Show "N authors" CodeLens |
+| `gitviz.codelens.enabled` | boolean | true | Enable/disable CodeLens |
+| `gitviz.codelens.scopes` | array | `["functions","classes"]` | Where to show: `files`, `classes`, `functions`, `blocks` |
+| `gitviz.codelens.showAuthors` | boolean | true | Show "N authors" CodeLens |
 
 **Status Bar**
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `gitlite.statusBar.enabled` | boolean | true | Show blame in status bar |
-| `gitlite.statusBar.format` | string | `{author}, {date}` | Status bar format string |
-| `gitlite.statusBar.clickBehavior` | enum | `openDetails` | `openDetails`, `copySha`, `openDiff` |
+| `gitviz.statusBar.enabled` | boolean | true | Show blame in status bar |
+| `gitviz.statusBar.format` | string | `{author}, {date}` | Status bar format string |
+| `gitviz.statusBar.clickBehavior` | enum | `openDetails` | `openDetails`, `copySha`, `openDiff` |
 
 **Views**
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `gitlite.views.defaultLocation` | enum | `gitlite` | `gitlite` (own panel) or `scm` (Source Control panel) |
+| `gitviz.views.defaultLocation` | enum | `gitviz` | `gitviz` (own panel) or `scm` (Source Control panel) |
 
 **Per-workspace settings:** All settings support workspace-level override via `.vscode/settings.json` automatically (standard VS Code behavior with `contributes.configuration`).
 
@@ -297,7 +297,7 @@ No UI frameworks (React, Vue, etc.) — WebViews use vanilla JS/HTML to keep the
 npm install
 npm run compile        # tsc + esbuild
 npm run package        # vsce package → .vsix
-code --install-extension gitlite-{version}.vsix
+code --install-extension gitviz-{version}.vsix
 ```
 
 Releases distributed as `.vsix` files (sideload) or via Open VSX Registry. No Microsoft Marketplace dependency required.

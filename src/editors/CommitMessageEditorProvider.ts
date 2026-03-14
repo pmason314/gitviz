@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 export class CommitMessageEditorProvider
     implements vscode.CustomTextEditorProvider, vscode.Disposable
 {
-    static readonly viewType = 'gitlite.commitMessageEditor';
+    static readonly viewType = 'gitviz.commitMessageEditor';
 
     async resolveCustomTextEditor(
         document: vscode.TextDocument,

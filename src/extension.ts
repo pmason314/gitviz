@@ -33,11 +33,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // No repo found yet — show stub items in tree views so the sidebar isn't blank
     const noRepo = new NoRepoProvider();
     const stubDisposables: vscode.Disposable[] = [
-        vscode.window.registerTreeDataProvider('gitlite.fileHistory', noRepo),
-        vscode.window.registerTreeDataProvider('gitlite.lineHistory', noRepo),
-        vscode.window.createTreeView('gitlite.branches',  { treeDataProvider: noRepo, showCollapseAll: false }),
-        vscode.window.createTreeView('gitlite.stashes',   { treeDataProvider: noRepo, showCollapseAll: false }),
-        vscode.window.createTreeView('gitlite.worktrees', { treeDataProvider: noRepo, showCollapseAll: false }),
+        vscode.window.registerTreeDataProvider('gitviz.fileHistory', noRepo),
+        vscode.window.registerTreeDataProvider('gitviz.lineHistory', noRepo),
+        vscode.window.createTreeView('gitviz.branches',  { treeDataProvider: noRepo, showCollapseAll: false }),
+        vscode.window.createTreeView('gitviz.stashes',   { treeDataProvider: noRepo, showCollapseAll: false }),
+        vscode.window.createTreeView('gitviz.worktrees', { treeDataProvider: noRepo, showCollapseAll: false }),
     ];
     context.subscriptions.push(...stubDisposables);
 
@@ -132,14 +132,14 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             { webviewOptions: { retainContextWhenHidden: true } }
         ),
         vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider),
-        vscode.window.registerTreeDataProvider('gitlite.fileHistory', fileHistoryProvider),
-        vscode.window.registerTreeDataProvider('gitlite.lineHistory', lineHistoryProvider),
+        vscode.window.registerTreeDataProvider('gitviz.fileHistory', fileHistoryProvider),
+        vscode.window.registerTreeDataProvider('gitviz.lineHistory', lineHistoryProvider),
         vscode.workspace.registerTextDocumentContentProvider(REVISION_SCHEME, revisionProvider),
         vscode.window.registerWebviewViewProvider(HotFilesView.viewType, hotFilesView),
         vscode.window.registerWebviewViewProvider(CommitsView.viewType, commitsView),
-        vscode.window.createTreeView('gitlite.branches',     { treeDataProvider: branchesProvider,     showCollapseAll: false }),
-        vscode.window.createTreeView('gitlite.stashes',      { treeDataProvider: stashesProvider,      showCollapseAll: false }),
-        vscode.window.createTreeView('gitlite.worktrees',     { treeDataProvider: worktreesProvider,     showCollapseAll: false }),
+        vscode.window.createTreeView('gitviz.branches',     { treeDataProvider: branchesProvider,     showCollapseAll: false }),
+        vscode.window.createTreeView('gitviz.stashes',      { treeDataProvider: stashesProvider,      showCollapseAll: false }),
+        vscode.window.createTreeView('gitviz.worktrees',     { treeDataProvider: worktreesProvider,     showCollapseAll: false }),
         vscode.window.registerWebviewViewProvider(CompareView.viewType, compareView),
     );
 
@@ -244,15 +244,15 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     // Commands
     // -------------------------------------------------------------------------
     context.subscriptions.push(
-        vscode.commands.registerCommand('gitlite.toggleBlame', () => {
+        vscode.commands.registerCommand('gitviz.toggleBlame', () => {
             inlineBlame.toggle();
         }),
 
-        vscode.commands.registerCommand('gitlite.toggleHeatmap', () => {
+        vscode.commands.registerCommand('gitviz.toggleHeatmap', () => {
             heatmap.toggle();
         }),
 
-        vscode.commands.registerCommand('gitlite.copySha', async (arg?: string | FileHistoryEntry) => {
+        vscode.commands.registerCommand('gitviz.copySha', async (arg?: string | FileHistoryEntry) => {
             let sha: string | undefined;
             if (typeof arg === 'string') {
                 sha = arg;
@@ -263,28 +263,28 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             }
             if (sha) {
                 await vscode.env.clipboard.writeText(sha);
-                vscode.window.showInformationMessage(`GitLite: Copied ${sha.slice(0, 7)} to clipboard.`);
+                vscode.window.showInformationMessage(`GitViz: Copied ${sha.slice(0, 7)} to clipboard.`);
             }
         }),
 
-        vscode.commands.registerCommand('gitlite.openCommitDetails', async (arg?: string | FileHistoryEntry) => {
+        vscode.commands.registerCommand('gitviz.openCommitDetails', async (arg?: string | FileHistoryEntry) => {
             const sha = typeof arg === 'string' ? arg
                 : (arg && 'sha' in arg) ? arg.sha
                 : undefined;
             if (sha) {
                 await commitDetailsPanel.show(sha).catch((err: Error) => {
-                    vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+                    vscode.window.showErrorMessage(`GitViz: ${err.message}`);
                 });
             }
         }),
 
-        vscode.commands.registerCommand('gitlite.openCommitGraph', async (sha?: string) => {
+        vscode.commands.registerCommand('gitviz.openCommitGraph', async (sha?: string) => {
             await commitGraphPanel.open(sha).catch((err: Error) => {
-                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+                vscode.window.showErrorMessage(`GitViz: ${err.message}`);
             });
         }),
 
-        vscode.commands.registerCommand('gitlite.startInteractiveRebase', async () => {
+        vscode.commands.registerCommand('gitviz.startInteractiveRebase', async () => {
             const input = await vscode.window.showInputBox({
                 title: 'Interactive Rebase',
                 prompt: 'Number of commits to rebase, or a base branch/SHA (e.g. 5, main, HEAD~3)',
@@ -303,7 +303,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             terminal.sendText(`git rebase -i ${base}`);
         }),
 
-        vscode.commands.registerCommand('gitlite.revertCommit', async () => {
+        vscode.commands.registerCommand('gitviz.revertCommit', async () => {
             const commits = await gitService.getCommitsOnBranch(undefined, 50);
             const items = commits.map(c => ({
                 label: `$(git-commit) ${c.sha.slice(0, 7)}`,
@@ -312,7 +312,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
                 sha: c.sha,
             }));
             const picked = await vscode.window.showQuickPick(items, {
-                title: 'GitLite: Revert Commit',
+                title: 'GitViz: Revert Commit',
                 placeHolder: 'Select a commit to revert…',
                 matchOnDescription: true,
                 matchOnDetail: true,
@@ -320,15 +320,15 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             if (!picked) { return; }
             try {
                 await gitService.revertCommit(picked.sha);
-                await vscode.commands.executeCommand('gitlite.refreshAll');
-                vscode.window.showInformationMessage(`GitLite: Reverted ${picked.sha.slice(0, 7)}.`);
+                await vscode.commands.executeCommand('gitviz.refreshAll');
+                vscode.window.showInformationMessage(`GitViz: Reverted ${picked.sha.slice(0, 7)}.`);
             } catch (err) {
-                vscode.window.showErrorMessage(`GitLite: Revert failed — ${(err as Error).message}`);
+                vscode.window.showErrorMessage(`GitViz: Revert failed — ${(err as Error).message}`);
             }
         }),
 
         // Internal helper: refresh commits + branches + worktrees (used after mutating git operations)
-        vscode.commands.registerCommand('gitlite.refreshAll', async () => {
+        vscode.commands.registerCommand('gitviz.refreshAll', async () => {
             await Promise.all([
                 commitsView.refresh(),
                 branchesProvider.refresh(),
@@ -336,17 +336,17 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             ]);
         }),
 
-        vscode.commands.registerCommand('gitlite.diffWithPrevious', async (args?: { sha: string; filePath: string }) => {
+        vscode.commands.registerCommand('gitviz.diffWithPrevious', async (args?: { sha: string; filePath: string }) => {
             if (!args) {
                 const editor = vscode.window.activeTextEditor;
                 if (!editor || editor.document.uri.scheme !== 'file') {
-                    vscode.window.showWarningMessage('GitLite: Open a file to use Diff with Previous.');
+                    vscode.window.showWarningMessage('GitViz: Open a file to use Diff with Previous.');
                     return;
                 }
                 const blame = await gitService.getBlameForFile(editor.document.uri.fsPath);
                 const blameInfo = blame.get(editor.selection.active.line + 1);
                 if (!blameInfo) {
-                    vscode.window.showWarningMessage('GitLite: No blame info for current line.');
+                    vscode.window.showWarningMessage('GitViz: No blame info for current line.');
                     return;
                 }
                 args = { sha: blameInfo.sha, filePath: editor.document.uri.fsPath };
@@ -358,7 +358,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             await vscode.commands.executeCommand('vscode.diff', prevUri, currUri, title);
         }),
 
-        vscode.commands.registerCommand('gitlite.revealCommit', async (sha?: string) => {
+        vscode.commands.registerCommand('gitviz.revealCommit', async (sha?: string) => {
             if (!sha) { return; }
             // Focus the Commits view panel, then filter to this SHA
             await vscode.commands.executeCommand(`${CommitsView.viewType}.focus`);
@@ -369,11 +369,11 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // Phase 2 — File / Line History commands
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitlite.openLineHistory', async () => {
-            await vscode.commands.executeCommand('gitlite.lineHistory.focus');
+        vscode.commands.registerCommand('gitviz.openLineHistory', async () => {
+            await vscode.commands.executeCommand('gitviz.lineHistory.focus');
         }),
 
-        vscode.commands.registerCommand('gitlite.lineHistory.openDiff', async (sha: string) => {
+        vscode.commands.registerCommand('gitviz.lineHistory.openDiff', async (sha: string) => {
             const filePath = lineHistoryProvider.getCurrentFilePath();
             if (!filePath) { return; }
             const line = lineHistoryProvider.getCurrentLine(); // 1-based
@@ -389,7 +389,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
                 { viewColumn: vscode.ViewColumn.Active, selection });
         }),
 
-        vscode.commands.registerCommand('gitlite.fileHistory.openAtRevision', async (entry: FileHistoryEntry) => {
+        vscode.commands.registerCommand('gitviz.fileHistory.openAtRevision', async (entry: FileHistoryEntry) => {
             const filePath = fileHistoryProvider.getCurrentFilePath();
             if (!filePath) { return; }
             const uri = makeRevisionUri(gitService.getRepoRoot(), entry.sha, filePath);
@@ -397,7 +397,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             await vscode.window.showTextDocument(doc, { preview: true });
         }),
 
-        vscode.commands.registerCommand('gitlite.fileHistory.diffWithPrevious', async (entry: FileHistoryEntry) => {
+        vscode.commands.registerCommand('gitviz.fileHistory.diffWithPrevious', async (entry: FileHistoryEntry) => {
             const filePath = fileHistoryProvider.getCurrentFilePath();
             if (!filePath) { return; }
             const repoRoot = gitService.getRepoRoot();
@@ -407,31 +407,31 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             await vscode.commands.executeCommand('vscode.diff', prevUri, currUri, title);
         }),
 
-        vscode.commands.registerCommand('gitlite.fileHistory.openCommitDetails', async (entry: string | FileHistoryEntry) => {
+        vscode.commands.registerCommand('gitviz.fileHistory.openCommitDetails', async (entry: string | FileHistoryEntry) => {
             const sha = typeof entry === 'string' ? entry : entry.sha;
             const highlightPath = fileHistoryProvider.getCurrentFilePath();
             await commitDetailsPanel.show(sha, highlightPath).catch((err: Error) => {
-                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+                vscode.window.showErrorMessage(`GitViz: ${err.message}`);
             });
         }),
 
-        vscode.commands.registerCommand('gitlite.hotFiles.set7',   () => { hotFilesView.setTimeframe(7);    }),
-        vscode.commands.registerCommand('gitlite.hotFiles.set30',  () => { hotFilesView.setTimeframe(30);   }),
-        vscode.commands.registerCommand('gitlite.hotFiles.set90',  () => { hotFilesView.setTimeframe(90);   }),
-        vscode.commands.registerCommand('gitlite.hotFiles.setAll', () => { hotFilesView.setTimeframe(null); }),
-        vscode.commands.registerCommand('gitlite.hotFiles.hideDeleted', () => {
+        vscode.commands.registerCommand('gitviz.hotFiles.set7',   () => { hotFilesView.setTimeframe(7);    }),
+        vscode.commands.registerCommand('gitviz.hotFiles.set30',  () => { hotFilesView.setTimeframe(30);   }),
+        vscode.commands.registerCommand('gitviz.hotFiles.set90',  () => { hotFilesView.setTimeframe(90);   }),
+        vscode.commands.registerCommand('gitviz.hotFiles.setAll', () => { hotFilesView.setTimeframe(null); }),
+        vscode.commands.registerCommand('gitviz.hotFiles.hideDeleted', () => {
             hotFilesView.setHideDeleted(true);
-            void vscode.commands.executeCommand('setContext', 'gitlite.hotFiles.hideDeleted', true);
+            void vscode.commands.executeCommand('setContext', 'gitviz.hotFiles.hideDeleted', true);
         }),
-        vscode.commands.registerCommand('gitlite.hotFiles.showDeleted', () => {
+        vscode.commands.registerCommand('gitviz.hotFiles.showDeleted', () => {
             hotFilesView.setHideDeleted(false);
-            void vscode.commands.executeCommand('setContext', 'gitlite.hotFiles.hideDeleted', false);
+            void vscode.commands.executeCommand('setContext', 'gitviz.hotFiles.hideDeleted', false);
         }),
 
-        vscode.commands.registerCommand('gitlite.hotFiles.openFileHistory', async (entry: HotFileEntry) => {
+        vscode.commands.registerCommand('gitviz.hotFiles.openFileHistory', async (entry: HotFileEntry) => {
             const absPath = path.join(gitService.getRepoRoot(), entry.path);
             fileHistoryProvider.loadForFile(absPath);
-            await vscode.commands.executeCommand('gitlite.fileHistory.focus');
+            await vscode.commands.executeCommand('gitviz.fileHistory.focus');
         }),
 
         // ---------------------------------------------------------------------
@@ -442,17 +442,17 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // Phase 3 — Branches view
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitlite.branches.filterUntracked', () => {
+        vscode.commands.registerCommand('gitviz.branches.filterUntracked', () => {
             branchesProvider.setShowUntracked(true);
-            void vscode.commands.executeCommand('setContext', 'gitlite.branches.showUntracked', true);
+            void vscode.commands.executeCommand('setContext', 'gitviz.branches.showUntracked', true);
         }),
 
-        vscode.commands.registerCommand('gitlite.branches.showAllBranches', () => {
+        vscode.commands.registerCommand('gitviz.branches.showAllBranches', () => {
             branchesProvider.setShowUntracked(false);
-            void vscode.commands.executeCommand('setContext', 'gitlite.branches.showUntracked', false);
+            void vscode.commands.executeCommand('setContext', 'gitviz.branches.showUntracked', false);
         }),
 
-        vscode.commands.registerCommand('gitlite.branches.cleanupUntracked', async () => {
+        vscode.commands.registerCommand('gitviz.branches.cleanupUntracked', async () => {
             const allBranches = await gitService.getBranches();
             const candidates = allBranches.filter(b => !b.isCurrent && (!b.upstream || b.upstreamGone));
             if (!candidates.length) {
@@ -480,7 +480,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
                         await gitService.deleteBranch(item.branch.name, true);
                     } catch (err) {
                         failed++;
-                        vscode.window.showErrorMessage(`GitLite: Failed to delete “${item.branch.name}”: ${(err as Error).message}`);
+                        vscode.window.showErrorMessage(`GitViz: Failed to delete “${item.branch.name}”: ${(err as Error).message}`);
                     }
                 }
             }
@@ -491,7 +491,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             }
         }),
 
-        vscode.commands.registerCommand('gitlite.branch.checkout', async (node: { branch?: BranchInfo }) => {
+        vscode.commands.registerCommand('gitviz.branch.checkout', async (node: { branch?: BranchInfo }) => {
             const name = node?.branch?.name ?? await vscode.window.showInputBox({
                 title: 'Switch to Branch',
                 placeHolder: 'Branch name',
@@ -501,21 +501,21 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
                 await gitService.checkoutBranch(name);
                 void branchesProvider.refresh();
                 void commitsView.refresh();
-                vscode.window.showInformationMessage(`GitLite: Switched to branch "${name}".`);
+                vscode.window.showInformationMessage(`GitViz: Switched to branch "${name}".`);
             } catch (err) {
-                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+                vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
             }
         }),
 
-        vscode.commands.registerCommand('gitlite.branch.create', () => {
+        vscode.commands.registerCommand('gitviz.branch.create', () => {
             void vscode.commands.executeCommand('git.branch');
         }),
 
-        vscode.commands.registerCommand('gitlite.branch.delete', () => {
+        vscode.commands.registerCommand('gitviz.branch.delete', () => {
             void vscode.commands.executeCommand('git.deleteBranch');
         }),
 
-        vscode.commands.registerCommand('gitlite.branch.rename', () => {
+        vscode.commands.registerCommand('gitviz.branch.rename', () => {
             void vscode.commands.executeCommand('git.renameBranch');
         }),
 
@@ -523,13 +523,13 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // Commits view — Tags filter
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitlite.commits.showTagsOnly', () => {
-            void vscode.commands.executeCommand('setContext', 'gitlite.commits.tagsFilterActive', true);
+        vscode.commands.registerCommand('gitviz.commits.showTagsOnly', () => {
+            void vscode.commands.executeCommand('setContext', 'gitviz.commits.tagsFilterActive', true);
             commitsView.showTagsOnly();
         }),
 
-        vscode.commands.registerCommand('gitlite.commits.showAllCommits', () => {
-            void vscode.commands.executeCommand('setContext', 'gitlite.commits.tagsFilterActive', false);
+        vscode.commands.registerCommand('gitviz.commits.showAllCommits', () => {
+            void vscode.commands.executeCommand('setContext', 'gitviz.commits.tagsFilterActive', false);
             commitsView.showAllCommits();
         }),
 
@@ -537,7 +537,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // Phase 3 — Tags (create/delete via Commits view)
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitlite.tag.create', async () => {
+        vscode.commands.registerCommand('gitviz.tag.create', async () => {
             const tagName = await vscode.window.showInputBox({
                 title: 'Create Tag',
                 placeHolder: 'v1.0.0',
@@ -555,16 +555,16 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
                 await commitsView.refresh();
                 await commitsView.promptAndPushTag(tagName.trim());
             } catch (err) {
-                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+                vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
             }
         }),
 
-        vscode.commands.registerCommand('gitlite.tag.delete', async () => {
+        vscode.commands.registerCommand('gitviz.tag.delete', async () => {
             let tags: import('./git/types').TagInfo[];
             try {
                 tags = await gitService.getTags();
             } catch {
-                vscode.window.showErrorMessage('GitLite: Could not fetch tags.');
+                vscode.window.showErrorMessage('GitViz: Could not fetch tags.');
                 return;
             }
             if (!tags.length) { vscode.window.showInformationMessage('No tags found.'); return; }
@@ -580,9 +580,9 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             try {
                 await gitService.deleteTag(picked.label);
                 await commitsView.refresh();
-                vscode.window.showInformationMessage(`GitLite: Tag "${picked.label}" deleted.`);
+                vscode.window.showInformationMessage(`GitViz: Tag "${picked.label}" deleted.`);
             } catch (err) {
-                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+                vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
             }
         }),
 
@@ -590,11 +590,11 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // Phase 3 — Stashes view
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitlite.stash.create', () => {
+        vscode.commands.registerCommand('gitviz.stash.create', () => {
             void vscode.commands.executeCommand('git.stash');
         }),
 
-        vscode.commands.registerCommand('gitlite.stash.dropAll', async () => {
+        vscode.commands.registerCommand('gitviz.stash.dropAll', async () => {
             const stashes = await gitService.getStashes();
             if (!stashes.length) {
                 vscode.window.showInformationMessage('No stashes to drop.');
@@ -606,26 +606,26 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             );
             if (answer !== 'Drop All') { return; }
             await gitService.dropAllStashes().catch((err: Error) => {
-                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+                vscode.window.showErrorMessage(`GitViz: ${err.message}`);
             });
         }),
 
-        vscode.commands.registerCommand('gitlite.stash.openDetails', async (node: StashInfo) => {
+        vscode.commands.registerCommand('gitviz.stash.openDetails', async (node: StashInfo) => {
             if (!node?.ref) { return; }
             await commitDetailsPanel.show(node.ref).catch((err: Error) => {
-                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+                vscode.window.showErrorMessage(`GitViz: ${err.message}`);
             });
         }),
 
-        vscode.commands.registerCommand('gitlite.stash.applyEntry', () => {
+        vscode.commands.registerCommand('gitviz.stash.applyEntry', () => {
             void vscode.commands.executeCommand('git.stashApply');
         }),
 
-        vscode.commands.registerCommand('gitlite.stash.popEntry', () => {
+        vscode.commands.registerCommand('gitviz.stash.popEntry', () => {
             void vscode.commands.executeCommand('git.stashPop');
         }),
 
-        vscode.commands.registerCommand('gitlite.stash.dropEntry', () => {
+        vscode.commands.registerCommand('gitviz.stash.dropEntry', () => {
             void vscode.commands.executeCommand('git.stashDrop');
         }),
 
@@ -633,9 +633,9 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // Phase 3 — Compare view
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitlite.compare.run', async (ref1: string, ref2: string) => {
+        vscode.commands.registerCommand('gitviz.compare.run', async (ref1: string, ref2: string) => {
             await comparePanel.show(ref1, ref2).catch((err: Error) => {
-                vscode.window.showErrorMessage(`GitLite: ${err.message}`);
+                vscode.window.showErrorMessage(`GitViz: ${err.message}`);
             });
         }),
 
@@ -643,7 +643,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // Phase 4 — Worktrees
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitlite.worktree.open', (node: WorktreeInfo) => {
+        vscode.commands.registerCommand('gitviz.worktree.open', (node: WorktreeInfo) => {
             void vscode.commands.executeCommand(
                 'vscode.openFolder',
                 vscode.Uri.file(node.path),
@@ -651,7 +651,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             );
         }),
 
-        vscode.commands.registerCommand('gitlite.worktree.create', async () => {
+        vscode.commands.registerCommand('gitviz.worktree.create', async () => {
             const branches = await gitService.getBranches();
             const NEW_BRANCH = '$(add) Create new branch…';
             const items: vscode.QuickPickItem[] = [
@@ -697,13 +697,13 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             try {
                 await gitService.addWorktree(dirPath.trim(), branch, isNew);
                 void worktreesProvider.refresh();
-                vscode.window.showInformationMessage(`GitLite: Worktree “${branch}” created at ${dirPath.trim()}.`);
+                vscode.window.showInformationMessage(`GitViz: Worktree “${branch}” created at ${dirPath.trim()}.`);
             } catch (err) {
-                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+                vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
             }
         }),
 
-        vscode.commands.registerCommand('gitlite.worktree.delete', async (node: WorktreeInfo) => {
+        vscode.commands.registerCommand('gitviz.worktree.delete', async (node: WorktreeInfo) => {
             if (!node?.path) { return; }
             const branchLabel = node.branch.replace(/^refs\/heads\//, '') || '(detached)';
             const isDirty = node.staged > 0 || node.unstaged > 0;
@@ -720,7 +720,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
                 await gitService.removeWorktree(node.path, isDirty);
                 void worktreesProvider.refresh();
             } catch (err) {
-                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+                vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
             }
         }),
     );

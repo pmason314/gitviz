@@ -57,5 +57,5 @@ jobs:
         with:
           tag_name: "v${{ env.VERSION }}"
           name: "v${{ env.VERSION }}"
-          files: "gitlite-${{ env.VERSION }}.vsix"
+          files: "gitviz-${{ env.VERSION }}.vsix"
           generate_release_notes: true

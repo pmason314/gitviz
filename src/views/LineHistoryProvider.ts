@@ -64,7 +64,7 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
         this.debounceTimer = setTimeout(() => {
             this.debounceTimer = undefined;
             this.load(filePath, line).catch((err) => {
-                console.error('[GitLite] LineHistoryProvider: unhandled error in load', err);
+                console.error('[GitViz] LineHistoryProvider: unhandled error in load', err);
             });
         }, DEBOUNCE_MS);
     }
@@ -94,7 +94,7 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
             }
         } catch (err) {
             if (generation !== this.loadGeneration) { return; }
-            console.error('[GitLite] LineHistoryProvider: failed to load line history', err);
+            console.error('[GitViz] LineHistoryProvider: failed to load line history', err);
             this.entries = [];
         }
         this.loading = false;
@@ -127,7 +127,7 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
         item.contextValue = 'historyEntry';
         item.iconPath = new vscode.ThemeIcon('git-commit');
         item.command = {
-            command: 'gitlite.lineHistory.openDiff',
+            command: 'gitviz.lineHistory.openDiff',
             title: 'Open Diff',
             arguments: [entry.sha],
         };

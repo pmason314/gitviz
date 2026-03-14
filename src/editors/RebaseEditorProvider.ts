@@ -15,7 +15,7 @@ import { RebaseAction, RebaseEntry } from '../git/types';
 export class RebaseEditorProvider
     implements vscode.CustomTextEditorProvider, vscode.Disposable
 {
-    static readonly viewType = 'gitlite.rebaseEditor';
+    static readonly viewType = 'gitviz.rebaseEditor';
 
     private readonly disposables: vscode.Disposable[] = [];
 
@@ -118,7 +118,7 @@ export class RebaseEditorProvider
                 }
                 case 'configureEditor': {
                     // User asked to set VS Code as sequence editor
-                    const terminal = vscode.window.createTerminal('GitLite: Configure Rebase');
+                    const terminal = vscode.window.createTerminal('GitViz: Configure Rebase');
                     terminal.sendText('git config --global sequence.editor "code --wait"');
                     terminal.show();
                     break;

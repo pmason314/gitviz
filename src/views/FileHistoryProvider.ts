@@ -25,7 +25,7 @@ export class FileHistoryProvider implements vscode.TreeDataProvider<HistoryNode>
         this.disposables.push(
             vscode.window.onDidChangeActiveTextEditor((editor) => {
                 // Only react to real files — ignore webview panels (editor=undefined),
-                // virtual docs (gitlite: scheme), etc. so the history view stays
+                // virtual docs (gitviz: scheme), etc. so the history view stays
                 // populated when the user opens the commit details panel.
                 if (editor?.document.uri.scheme === 'file') {
                     this.currentFilePath = editor.document.uri.fsPath;
@@ -56,7 +56,7 @@ export class FileHistoryProvider implements vscode.TreeDataProvider<HistoryNode>
         item.contextValue = 'historyEntry';
         item.iconPath = new vscode.ThemeIcon('git-commit');
         item.command = {
-            command: 'gitlite.fileHistory.openCommitDetails',
+            command: 'gitviz.fileHistory.openCommitDetails',
             title: 'Show Commit Details',
             arguments: [entry.sha],
         };
@@ -83,7 +83,7 @@ export class FileHistoryProvider implements vscode.TreeDataProvider<HistoryNode>
             }
             return entries;
         } catch (err) {
-            console.error('[GitLite] FileHistoryProvider: failed to load file history', err);
+            console.error('[GitViz] FileHistoryProvider: failed to load file history', err);
             return [];
         }
     }
