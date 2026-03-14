@@ -1,5 +1,6 @@
-import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import { GitService } from '../git/GitService';
 import { HotFileEntry } from '../git/types';
 
@@ -47,12 +48,12 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
     private hideDeleted = false;
     private cachedFiles: HotFileEntry[] = [];
 
-    constructor(private readonly gitService: GitService) {}
+    constructor(private readonly gitService: GitService, private readonly extensionUri: vscode.Uri) {}
 
     resolveWebviewView(webviewView: vscode.WebviewView): void {
         this._view = webviewView;
         webviewView.webview.options = { enableScripts: true };
-        webviewView.webview.html = this._getHtml();
+        webviewView.webview.html = fs.readFileSync(path.join(this.extensionUri.fsPath, 'resources', 'hotFilesView.html'), 'utf8');
         webviewView.description = TIMEFRAME_LABELS['30'];
 
         webviewView.webview.onDidReceiveMessage(async (msg: { type: string; path?: string; value?: string }) => {
@@ -154,187 +155,4 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
         this._onActiveTimeframeChanged.dispose();
     }
 
-    private _getHtml(): string {
-        return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: var(--vscode-font-family);
-  font-size: var(--vscode-font-size);
-  color: var(--vscode-foreground);
-  background: transparent;
-  overflow-x: hidden;
-}
-.search-wrap {
-  padding: 5px 8px 3px;
-  position: sticky;
-  top: 0;
-  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
-  z-index: 10;
-}
-.search-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-input-border, transparent);
-  border-radius: 2px;
-  padding: 0 7px;
-  height: 24px;
-}
-.search-row:focus-within { border-color: var(--vscode-focusBorder); }
-.s-icon { flex-shrink: 0; opacity: 0.5; width: 13px; height: 13px; }
-.s-input {
-  flex: 1; min-width: 0;
-  background: transparent; border: none; outline: none;
-  color: var(--vscode-input-foreground);
-  font: inherit;
-}
-.s-input::placeholder { color: var(--vscode-input-placeholderForeground); opacity: 1; }
-.s-clear {
-  display: none; flex-shrink: 0; align-items: center; justify-content: center;
-  cursor: pointer; background: none; border: none;
-  color: var(--vscode-icon-foreground, var(--vscode-foreground));
-  opacity: 0.6; padding: 0; font-size: 12px; line-height: 1; width: 14px; height: 14px;
-}
-.s-clear:hover { opacity: 1; }
-.row {
-  display: flex; align-items: center;
-  padding: 1px 8px 1px 20px;
-  min-height: 22px;
-  cursor: pointer; gap: 0;
-}
-.row:hover { background: var(--vscode-list-hoverBackground); }
-.name { white-space: nowrap; flex-shrink: 0; }
-.meta {
-  flex-shrink: 0;
-  color: var(--vscode-descriptionForeground);
-  font-size: 0.9em;
-  margin-left: 6px;
-  white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0;
-}
-.hist-btn {
-  display: none; align-items: center; justify-content: center;
-  background: none; border: none;
-  color: var(--vscode-icon-foreground, var(--vscode-foreground));
-  opacity: 0.55; cursor: pointer; padding: 2px; border-radius: 3px;
-  margin-left: 4px; flex-shrink: 0;
-}
-.row:hover .hist-btn { display: flex; }
-.hist-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
-.heat-high   { color: var(--vscode-gitlite-hotFile-heatHigh,   #b8784e); }
-.heat-medium { color: var(--vscode-gitlite-hotFile-heatMedium, #9e8a42); }
-.empty { padding: 6px 20px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
-#vtip { display: none; position: fixed; background: var(--vscode-editorHoverWidget-background); border: 1px solid var(--vscode-editorHoverWidget-border); color: var(--vscode-editorHoverWidget-foreground); padding: 2px 6px; font-size: 0.85em; white-space: nowrap; pointer-events: none; z-index: 1000; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36)); }
-</style>
-</head>
-<body>
-<div class="search-wrap">
-  <div class="search-row">
-    <svg class="s-icon" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M6.5 1a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zm-4.5 5.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0zm11.854 7.354-3-3-.708.708 3 3 .708-.708z"/>
-    </svg>
-    <input class="s-input" id="f" type="text" placeholder="Filter by path or glob\u2026" autocomplete="off" spellcheck="false"/>
-    <button class="s-clear" id="c" data-vtip="Clear filter">\u2715</button>
-  </div>
-</div>
-<div id="list"></div>
-<div id="vtip"></div>
-<script>
-var vsc = acquireVsCodeApi();
-var inp = document.getElementById('f');
-var clr = document.getElementById('c');
-var lst = document.getElementById('list');
-var files = [];
-var emptyMsg = null;
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function render() {
-  if (!files.length) {
-    lst.innerHTML = '<div class="empty">' + esc(emptyMsg || 'No results') + '</div>';
-    return;
-  }
-  lst.innerHTML = files.map(function(f) {
-    var heat = f.heat || '';
-    var slash = f.path.lastIndexOf('/');
-    var name = slash >= 0 ? f.path.slice(slash + 1) : f.path;
-    var dir  = slash >= 0 ? f.path.slice(0, slash) : '';
-    var parts = dir ? dir.split('/') : [];
-    var shortDir = parts.length > 2 ? parts[0] + '/\u2026/' + parts[parts.length - 1] : dir;
-    var commitWord = f.count === 1 ? ' commit' : ' commits';
-    var meta = f.count + commitWord + (shortDir ? ' \u00b7 ' + shortDir : '');
-    var histSvg = '<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">'
-      + '<path d="M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8z"/>'
-      + '<path d="M7.5 4.5v3.72l2.64 2.64.72-.72-2.36-2.36V4.5z"/>'
-      + '</svg>';
-    return '<div class="row" data-path="' + esc(f.path) + '"' + (f.exists === false ? ' style="opacity:0.5;text-decoration:line-through;"' : '') + '>'
-      + '<span class="name ' + heat + '">' + esc(name) + '</span>'
-      + '<span class="meta">' + esc(meta) + '</span>'
-      + '<button class="hist-btn" data-path="' + esc(f.path) + '" data-vtip="Open File History">' + histSvg + '</button>'
-      + '</div>';
-  }).join('');
-}
-
-lst.addEventListener('click', function(e) {
-  var btn = e.target.closest('.hist-btn');
-  if (btn) { e.stopPropagation(); vsc.postMessage({type:'openFileHistory', path: btn.dataset.path}); return; }
-  var row = e.target.closest('.row');
-  if (row) { vsc.postMessage({type:'openFile', path: row.dataset.path}); }
-});
-
-inp.addEventListener('input', function() {
-  clr.style.display = inp.value ? 'flex' : 'none';
-  vsc.postMessage({type:'filter', value: inp.value});
-});
-
-clr.addEventListener('click', function() {
-  inp.value = ''; clr.style.display = 'none';
-  vsc.postMessage({type:'filter', value: ''});
-  inp.focus();
-});
-
-window.addEventListener('message', function(e) {
-  var msg = e.data;
-  if (msg.type === 'update') {
-    files = msg.files || [];
-    emptyMsg = msg.emptyMessage || null;
-    render();
-  }
-});
-(function() {
-  var vtip = document.getElementById('vtip');
-  var vtipT;
-  document.addEventListener('mouseover', function(e) {
-    var el = e.target.closest('[data-vtip]');
-    clearTimeout(vtipT);
-    if (!el) { vtip.style.display = 'none'; return; }
-    vtipT = setTimeout(function() {
-      var r = el.getBoundingClientRect();
-      vtip.textContent = el.dataset.vtip;
-      vtip.style.display = 'block';
-      vtip.style.left = r.left + 'px';
-      vtip.style.top = (r.bottom + 4) + 'px';
-      var tr = vtip.getBoundingClientRect();
-      if (tr.bottom > window.innerHeight - 4) { vtip.style.top = Math.max(4, r.top - tr.height - 4) + 'px'; }
-      if (tr.right > window.innerWidth - 16) { vtip.style.left = Math.max(4, window.innerWidth - tr.width - 16) + 'px'; }
-    }, 500);
-  });
-  document.addEventListener('mouseout', function(e) {
-    if (!e.target.closest('[data-vtip]')) { return; }
-    clearTimeout(vtipT);
-    vtip.style.display = 'none';
-  });
-})();
-</script>
-</body>
-</html>`;
-    }
 }

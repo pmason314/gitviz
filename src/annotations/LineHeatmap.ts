@@ -66,7 +66,7 @@ export class LineHeatmap implements vscode.Disposable {
         }
     }
 
-    /** Called on save — re-render after cache has been invalidated. */
+    /** Re-render after cache has been invalidated. */
     onFileSaved(document: vscode.TextDocument): void {
         const editor = vscode.window.activeTextEditor;
         if (editor && editor.document === document) {
@@ -78,10 +78,6 @@ export class LineHeatmap implements vscode.Disposable {
         this.clearAllDecorationTypes();
         this.disposables.forEach((d) => d.dispose());
     }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
 
     private async renderEditor(editor: vscode.TextEditor): Promise<void> {
         if (!this.enabled) { return; }
@@ -164,14 +160,6 @@ export class LineHeatmap implements vscode.Disposable {
         return types;
     }
 }
-
-// -------------------------------------------------------------------------
-// Binary file detection
-// -------------------------------------------------------------------------
-
-// -------------------------------------------------------------------------
-// Color helpers
-// -------------------------------------------------------------------------
 
 type RGB = [number, number, number];
 

@@ -34,7 +34,6 @@ export class InlineBlame implements vscode.Disposable {
                 fontStyle: 'italic',
                 margin: '0 0 0 3em',
             },
-            // opacity: '0.95',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
         });
 
@@ -45,7 +44,7 @@ export class InlineBlame implements vscode.Disposable {
             vscode.window.onDidChangeActiveTextEditor((editor) => {
                 if (editor) {
                     this.scheduleUpdate(editor);
-                    // Pre-warm blame cache for newly opened file (fire-and-forget)
+                    // Pre-warm blame cache for newly opened file
                     this.preFetch(editor.document);
                 }
             }),
@@ -74,7 +73,7 @@ export class InlineBlame implements vscode.Disposable {
         }
     }
 
-    /** Called on save — clears the decoration so it re-renders on next cursor move. */
+    // Clears the decoration so it re-renders on next cursor move.
     onFileSaved(document: vscode.TextDocument): void {
         const editor = vscode.window.activeTextEditor;
         if (editor && editor.document === document) {
@@ -90,10 +89,6 @@ export class InlineBlame implements vscode.Disposable {
         this.decorationType.dispose();
         this.disposables.forEach((d) => d.dispose());
     }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
 
     private scheduleUpdate(editor: vscode.TextEditor): void {
         if (this.debounceTimer !== undefined) {
@@ -178,14 +173,6 @@ export class InlineBlame implements vscode.Disposable {
         this.gitService.getBlameForFile(document.uri.fsPath).catch(() => { /* ignore */ });
     }
 }
-
-// -------------------------------------------------------------------------
-// Binary file detection
-// -------------------------------------------------------------------------
-
-// -------------------------------------------------------------------------
-// Format string parser
-// -------------------------------------------------------------------------
 
 /**
  * Replaces tokens in a format string with blame values.

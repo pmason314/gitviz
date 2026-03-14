@@ -87,8 +87,8 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const hoverProvider = new BlameHoverProvider(gitService, config);
     const fileHistoryProvider = new FileHistoryProvider(gitService, config);
     const lineHistoryProvider = new LineHistoryProvider(gitService, config);
-    const hotFilesView = new HotFilesView(gitService);
-    const commitsView = new CommitsView(gitService);
+    const hotFilesView = new HotFilesView(gitService, context.extensionUri);
+    const commitsView = new CommitsView(gitService, context.extensionUri);
     const branchesProvider = new BranchesProvider(gitService);
     const stashesProvider = new StashesProvider(gitService);
     const worktreesProvider = new WorktreesProvider(gitService);
@@ -96,8 +96,8 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const comparePanel = new ComparePanel(gitService);
     const revisionProvider = new RevisionContentProvider(gitService);
     const commitDetailsPanel = new CommitDetailsPanel(gitService);
-    const commitGraphPanel   = CommitGraphPanel.getInstance(gitService);
-    const rebaseEditorProvider = new RebaseEditorProvider();
+    const commitGraphPanel   = CommitGraphPanel.getInstance(gitService, context.extensionUri);
+    const rebaseEditorProvider = new RebaseEditorProvider(context.extensionUri);
     const commitMessageEditorProvider = new CommitMessageEditorProvider();
 
     // -------------------------------------------------------------------------
