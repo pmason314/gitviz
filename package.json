@@ -1,7 +1,7 @@
 {
   "name": "gitviz",
   "displayName": "GitViz",
-  "description": "Fast and lightweight sidebar tools and visualizations for git.",
+  "description": "Fast, lightweight visualizations and sidebar tools to help with git and version control.",
   "version": "0.1.2",
   "publisher": "pmason314",
   "icon": "resources/gitviz-icon.png",
