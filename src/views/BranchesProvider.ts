@@ -52,7 +52,8 @@ export class BranchesProvider
     async refresh(): Promise<void> {
         try {
             this.localBranches = await this.gitService.getBranches();
-        } catch {
+        } catch (err) {
+            console.error('[GitLite] BranchesProvider: failed to load local branches', err);
             this.localBranches = [];
         }
 
@@ -68,7 +69,8 @@ export class BranchesProvider
                     subject: b.subject,
                 }))
             );
-        } catch {
+        } catch (err) {
+            console.error('[GitLite] BranchesProvider: failed to load remote branches', err);
             this.remoteBranches = [];
         }
 

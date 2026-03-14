@@ -23,7 +23,8 @@ export class WorktreesProvider
                 ...w,
                 contextValue: (w.path === repoRoot ? 'worktreeCurrent' : 'worktree') as 'worktree' | 'worktreeCurrent',
             }));
-        } catch {
+        } catch (err) {
+            console.error('[GitLite] WorktreesProvider: failed to load worktrees', err);
             this.worktrees = [];
         }
         this._onDidChangeTreeData.fire();

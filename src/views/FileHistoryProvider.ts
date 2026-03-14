@@ -82,7 +82,8 @@ export class FileHistoryProvider implements vscode.TreeDataProvider<HistoryNode>
                 return [...entries, { kind: 'truncated', limit } as TruncatedNode];
             }
             return entries;
-        } catch {
+        } catch (err) {
+            console.error('[GitLite] FileHistoryProvider: failed to load file history', err);
             return [];
         }
     }

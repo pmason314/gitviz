@@ -15,18 +15,21 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
     async refresh(): Promise<void> {
         try {
             this.cachedCommits = await this.gitService.getCommitsOnBranch(undefined, 200);
-        } catch {
+        } catch (err) {
+            console.error('[GitLite] CommitsView: failed to load commits', err);
             this.cachedCommits = [];
         }
         try {
             const contributors = await this.gitService.getContributors();
             this.cachedAuthors = contributors.map(c => c.name).filter(Boolean);
-        } catch {
+        } catch (err) {
+            console.error('[GitLite] CommitsView: failed to load contributors', err);
             this.cachedAuthors = [];
         }
         try {
             this.cachedTags = await this.gitService.getTags();
-        } catch {
+        } catch (err) {
+            console.error('[GitLite] CommitsView: failed to load tags', err);
             this.cachedTags = [];
         }
         this._sendUpdate();

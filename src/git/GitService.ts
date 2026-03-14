@@ -29,6 +29,9 @@ export class GitService {
     private running = 0;
     private readonly queue: Array<() => void> = [];
 
+    /** Tag cache — invalidated when .git/refs/tags or packed-refs changes */
+    private tagCache: TagInfo[] | null = null;
+
     private constructor(
         private readonly repoRoot: string,
         blameCache: BlameCache,
@@ -293,9 +296,17 @@ export class GitService {
         return this.run(() => this.fetchRemotes());
     }
 
-    /** Return all tags sorted by date descending. */
+    /** Return all tags sorted by date descending. Results are cached until clearTagCache() is called. */
     async getTags(): Promise<TagInfo[]> {
-        return this.run(() => this.fetchTags());
+        if (this.tagCache) { return this.tagCache; }
+        const tags = await this.run(() => this.fetchTags());
+        this.tagCache = tags;
+        return tags;
+    }
+
+    /** Invalidate the tag cache so the next getTags() call re-fetches from git. */
+    clearTagCache(): void {
+        this.tagCache = null;
     }
 
     /** Return all stashes. */
@@ -556,7 +567,7 @@ export class GitService {
         }
 
         const statusResults = await Promise.all(
-            bare.map(wt => this.fetchWorktreeStatus(wt.path, wt.isBare))
+            bare.map(wt => this.run(() => this.fetchWorktreeStatus(wt.path, wt.isBare)))
         );
         return bare.map((wt, i) => ({ ...wt, ...statusResults[i] }));
     }
@@ -976,7 +987,7 @@ export class GitService {
     }
 
     private async fetchHotFiles(since: Date | null): Promise<HotFileEntry[]> {
-        const args: string[] = ['log', '--format=COMMIT:%an', '--name-only'];
+        const args: string[] = ['log', '--format=COMMIT:%an', '--name-only', '--max-count=2000'];
         if (since) {
             args.push(`--after=${since.toISOString()}`);
         }

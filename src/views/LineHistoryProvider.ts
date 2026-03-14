@@ -24,6 +24,7 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
     private currentFilePath: string | undefined;
     private currentLine = -1;
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
+    private loadGeneration = 0;
     private readonly disposables: vscode.Disposable[] = [];
 
     constructor(private readonly gitService: GitService, private readonly config: Config) {
@@ -62,19 +63,24 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
         this._onDidChangeTreeData.fire();
         this.debounceTimer = setTimeout(() => {
             this.debounceTimer = undefined;
-            this.load(filePath, line).catch(() => {/* ignore */});
+            this.load(filePath, line).catch((err) => {
+                console.error('[GitLite] LineHistoryProvider: unhandled error in load', err);
+            });
         }, DEBOUNCE_MS);
     }
 
     private async load(filePath: string, line: number): Promise<void> {
         this.currentFilePath = filePath;
         this.currentLine = line;
+        const generation = ++this.loadGeneration;
         const limit = this.config.historyMaxCommits();
         try {
             const [raw, allTags] = await Promise.all([
                 this.gitService.getLineHistory(filePath, line, line, limit),
                 this.gitService.getTags(),
             ]);
+            // Discard results if a newer load was triggered while we were awaiting
+            if (generation !== this.loadGeneration) { return; }
             this.tagsBySha = new Map();
             for (const t of allTags) {
                 const list = this.tagsBySha.get(t.sha) ?? [];
@@ -86,7 +92,9 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
             } else {
                 this.entries = raw;
             }
-        } catch {
+        } catch (err) {
+            if (generation !== this.loadGeneration) { return; }
+            console.error('[GitLite] LineHistoryProvider: failed to load line history', err);
             this.entries = [];
         }
         this.loading = false;

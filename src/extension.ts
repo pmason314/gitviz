@@ -74,9 +74,9 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     // -------------------------------------------------------------------------
     // Core services
     // -------------------------------------------------------------------------
-    const blameCache = new BlameCache();
-    const commitCache = new CommitCache();
     const config = new Config();
+    const blameCache = new BlameCache(config.blameCacheMaxFiles());
+    const commitCache = new CommitCache(config.commitCacheMaxEntries());
     const gitService = GitService.getInstance(repoRoot, blameCache, commitCache);
 
     // -------------------------------------------------------------------------
@@ -160,7 +160,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         let stashTimer:     ReturnType<typeof setTimeout> | undefined;
         let worktreeTimer:  ReturnType<typeof setTimeout> | undefined;
         const debounceBranches  = () => { clearTimeout(branchTimer);   branchTimer   = setTimeout(() => void branchesProvider.refresh(),  300); };
-        const debounceTags      = () => { clearTimeout(tagTimer);       tagTimer      = setTimeout(() => void commitsView.refresh(),       300); };
+        const debounceTags      = () => { clearTimeout(tagTimer);       tagTimer      = setTimeout(() => { gitService.clearTagCache(); void commitsView.refresh(); },       300); };
         const debounceStashes   = () => { clearTimeout(stashTimer);     stashTimer    = setTimeout(() => void stashesProvider.refresh(),  300); };
         const debounceWorktrees = () => { clearTimeout(worktreeTimer);  worktreeTimer = setTimeout(() => void worktreesProvider.refresh(), 300); };
 

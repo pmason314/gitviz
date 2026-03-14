@@ -29,6 +29,10 @@ export class Config {
     // History views
     historyMaxCommits(): number { return this.get('history.maxCommits', 500); }
 
+    // Cache sizes
+    blameCacheMaxFiles(): number { return this.get('cache.blameMaxFiles', 50); }
+    commitCacheMaxEntries(): number { return this.get('cache.commitMaxEntries', 200); }
+
     /**
      * Subscribe to any gitlite.* configuration change.
      * Returns the disposable so callers can add it to their subscriptions.

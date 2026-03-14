@@ -12,20 +12,27 @@ export const TIMEFRAME_LABELS: Record<string, string> = {
     'null': 'All time',
 };
 
+let _lastFilterPattern = '';
+let _lastFilterRegex: RegExp | null = null;
+
 function matchesFilter(filePath: string, filter: string): boolean {
     if (!filter) { return true; }
     const norm = filePath.replace(/\\/g, '/');
     if (!/[*?]/.test(filter)) {
         return norm.toLowerCase().includes(filter.toLowerCase());
     }
-    const reSource = filter
-        .replace(/\\/g, '/')
-        .replace(/[.+^${}()|[\]]/g, '\\$&')
-        .replace(/\*\*/g, '\x00')
-        .replace(/\*/g, '[^/]*')
-        .replace(/\?/g, '[^/]')
-        .replace(/\x00/g, '.*');
-    try { return new RegExp(reSource, 'i').test(norm); } catch { return false; }
+    if (filter !== _lastFilterPattern) {
+        const reSource = filter
+            .replace(/\\/g, '/')
+            .replace(/[.+^${}()|[\]]/g, '\\$&')
+            .replace(/\*\*/g, '\x00')
+            .replace(/\*/g, '[^/]*')
+            .replace(/\?/g, '[^/]')
+            .replace(/\x00/g, '.*');
+        try { _lastFilterRegex = new RegExp(reSource, 'i'); } catch { _lastFilterRegex = null; }
+        _lastFilterPattern = filter;
+    }
+    return _lastFilterRegex ? _lastFilterRegex.test(norm) : false;
 }
 
 export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -102,9 +109,18 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
     }
 
     private _sendFiltered(): void {
+        const total = this.cachedFiles.length;
+        // Annotate each file with its heat class based on its rank in the *full* list
+        // so the color is stable regardless of what the user types in the filter.
+        const annotated = this.cachedFiles.map((f, i) => {
+            const ratio = total > 1 ? i / (total - 1) : 0;
+            const heat = ratio < 0.25 ? 'heat-high' : ratio < 0.6 ? 'heat-medium' : '';
+            return { ...f, heat };
+        });
+
         let files = this.filter
-            ? this.cachedFiles.filter(e => matchesFilter(e.path, this.filter))
-            : this.cachedFiles;
+            ? annotated.filter(e => matchesFilter(e.path, this.filter))
+            : annotated;
 
         if (this.hideDeleted) {
             files = files.filter(f => (f as HotFileEntry & { exists?: boolean }).exists !== false);
@@ -246,10 +262,8 @@ function render() {
     lst.innerHTML = '<div class="empty">' + esc(emptyMsg || 'No results') + '</div>';
     return;
   }
-  var n = files.length;
-  lst.innerHTML = files.map(function(f, i) {
-    var ratio = n > 1 ? i / (n - 1) : 0;
-    var heat = ratio < 0.25 ? 'heat-high' : ratio < 0.6 ? 'heat-medium' : '';
+  lst.innerHTML = files.map(function(f) {
+    var heat = f.heat || '';
     var slash = f.path.lastIndexOf('/');
     var name = slash >= 0 ? f.path.slice(slash + 1) : f.path;
     var dir  = slash >= 0 ? f.path.slice(0, slash) : '';

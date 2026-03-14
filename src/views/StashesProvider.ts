@@ -18,7 +18,8 @@ export class StashesProvider
         try {
             const entries = await this.gitService.getStashes();
             this.stashes = entries.map(s => ({ ...s, contextValue: 'stash' as const }));
-        } catch {
+        } catch (err) {
+            console.error('[GitLite] StashesProvider: failed to load stashes', err);
             this.stashes = [];
         }
         this._onDidChangeTreeData.fire();

@@ -1,10 +1,8 @@
 import { BlameInfo } from './types';
 
-const MAX_FILES = 50;
-
 /**
  * LRU cache for whole-file blame data.
- * Keys are absolute file paths. Capped at MAX_FILES entries to prevent OOM
+ * Keys are absolute file paths. Capped at maxFiles entries to prevent OOM
  * on long sessions with many open files.
  *
  * Also tracks in-flight fetch promises so multiple callers for the same file
@@ -13,6 +11,11 @@ const MAX_FILES = 50;
 export class BlameCache {
     private readonly cache = new Map<string, Map<number, BlameInfo>>();
     private readonly inFlight = new Map<string, Promise<Map<number, BlameInfo>>>();
+    private readonly maxFiles: number;
+
+    constructor(maxFiles = 50) {
+        this.maxFiles = maxFiles;
+    }
 
     get(filePath: string): Map<number, BlameInfo> | undefined {
         const entry = this.cache.get(filePath);
@@ -28,7 +31,7 @@ export class BlameCache {
     set(filePath: string, data: Map<number, BlameInfo>): void {
         // Move to end if already present
         this.cache.delete(filePath);
-        if (this.cache.size >= MAX_FILES) {
+        if (this.cache.size >= this.maxFiles) {
             // Evict least recently used (first entry)
             const oldest = this.cache.keys().next().value;
             if (oldest !== undefined) {
