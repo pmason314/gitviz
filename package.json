@@ -4,7 +4,8 @@
   "description": "Lightweight GitLens alternative — blame annotations, heatmap, history, and repository exploration without cloud sync or telemetry.",
   "version": "0.1.0",
   "publisher": "pmason314",
-  "license": "MIT",
+  "icon": "resources/gitlite-icon.png",
+  "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "https://github.com/pmason314/gitlite"
@@ -21,8 +22,16 @@
     "blame",
     "gitlens",
     "history",
-    "annotation"
+    "annotation",
+    "heatmap",
+    "rebase",
+    "worktree",
+    "commit-graph"
   ],
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
   "activationEvents": [
     "onStartupFinished"
   ],
