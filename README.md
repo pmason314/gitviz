@@ -1,16 +1,16 @@
 # GitViz
 
-A fast, lightweight, and completely free VS Code extension that brings powerful Git annotations, useful visualizations, and easy repository exploration to your editor — without forced account linking, AI integration, or telemetry.  Heavily inspired by [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens).
+A fast, lightweight, and fully free extension with inline blame annotations, a visual commit graph, and a variety of sidebar utilities and other source control tools for exploring and analyzing repository history.  Zero forced account linking, AI integration, or telemetry.  Heavily inspired by [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens).
 
 ## Features
 
 ### Editor Annotations
 
 - **Inline blame** — ghost text at the end of the active line showing author, relative date, and commit message, configurable via a format string
-- **Hover details** — rich popup over any blamed line with full commit info, diff stats, and action buttons (open diff, copy SHA, reveal in Commits view)
+- **Hover details** — popup over any blamed line with full commit info, diff stats, and action buttons (open diff, copy SHA, reveal in Commits view)
 - **Line heatmap** — color-coded line backgrounds showing the relative age of every line in the file, from hot (recent) to cold (old)
 
-### Sidebar Views (GitViz activity bar panel)
+### Sidebar Views
 
 - **File History** — full commit history for the currently open file, with tags highlighted in tooltips; opens diff or commit details on click
 - **Line History** — commit history scoped to the selected line range, updating live as you move the cursor
@@ -24,11 +24,8 @@ A fast, lightweight, and completely free VS Code extension that brings powerful 
 ### Full-Panel Views
 
 - **Commit Graph** — canvas-rendered DAG showing the full branch history with ref badges (branches, tags, HEAD, remotes); supports checkout, create branch, cherry-pick, and soft/mixed/hard reset from a right-click menu
-- **Commit Details** — rich panel showing message, author, date, full SHA, and per-file change breakdown with inline diff access; opens from any history view or the Commits sidebar
-
-### Git Workflow Integration
-
-- **Interactive Rebase editor** — replaces the plain-text `git-rebase-todo` editor with a drag-and-drop UI; supports pick, reword, edit, squash, fixup, and drop with keyboard shortcuts and live squash message preview
+- **Commit Details** — panel showing message, author, date, full SHA, and per-file change breakdown with inline diff access; opens from any history view or the Commits sidebar
+- **Interactive Rebase editor** — replaces the plain-text `git-rebase-todo` editor with a drag-and-drop UI; supports pick, reword, edit, squash, fixup, and drop with keyboard shortcuts and live squash message preview.  Access via `Command Palette -> GitViz: Start Interactive Rebase`
 
 ## Requirements
 
@@ -59,12 +56,10 @@ All settings are under the `gitviz.*` namespace and configurable via **Settings*
 | `GitViz: Toggle Inline Blame` | Show/hide inline blame annotations |
 | `GitViz: Toggle Line Heatmap` | Show/hide the line heatmap |
 | `GitViz: Open Commit Graph` | Open the Commit Graph panel |
-| `GitViz: Open Commit Details` | Open the Commit Details panel for a SHA |
-| `GitViz: Show Line History` | Open Line History for the current selection |
-| `GitViz: Compare Refs` | Open the Compare view |
 | `GitViz: Start Interactive Rebase` | Begin an interactive rebase |
 | `GitViz: Revert Commit` | Revert a commit |
-| `GitViz: Create Tag` | Create a tag at a commit |
+| `GitViz: Diff with Previous Commit` | Diff the selected commit against its parent |
+| `GitViz: Focus on <View> View` | Focus the specified sidebar view (File History, Line History, Hot Files, Commits, Compare, Stashes, Branches, Worktrees) |
 
 ## Building from Source
 
@@ -77,4 +72,4 @@ Press **F5** to launch the extension in a new Extension Development Host window.
 
 ## License
 
-GPL v3
+[GNU General Public License v3](https://www.gnu.org/licenses/gpl-3.0.html)

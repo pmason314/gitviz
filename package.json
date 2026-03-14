@@ -1,7 +1,7 @@
 {
   "name": "gitviz",
   "displayName": "GitViz",
-  "description": "Lightweight GitLens alternative — blame annotations, heatmap, history, and repository exploration without cloud sync or telemetry.",
+  "description": "Fast and lightweight sidebar tools and visualizations for git.",
   "version": "0.1.0",
   "publisher": "pmason314",
   "icon": "resources/gitviz-icon.png",
@@ -128,6 +128,26 @@
         },
         {
           "command": "gitviz.compare.run",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.tag.create",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.tag.delete",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.openCommitDetails",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.revealCommit",
+          "when": "false"
+        },
+        {
+          "command": "gitviz.openLineHistory",
           "when": "false"
         }
       ],
