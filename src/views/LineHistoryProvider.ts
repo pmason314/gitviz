@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Config } from '../config/Config';
 import { GitService } from '../git/GitService';
-import { FileHistoryEntry } from '../git/types';
+import { FileHistoryEntry, TagInfo } from '../git/types';
 
 const DEBOUNCE_MS = 500;
 
@@ -19,7 +19,7 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
     private entries: LineHistoryNode[] = [];
-    private tagsBySha: Map<string, string[]> = new Map();
+    private tagsBySha: Map<string, TagInfo[]> = new Map();
     private loading = false;
     private currentFilePath: string | undefined;
     private currentLine = -1;
@@ -84,7 +84,7 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
             this.tagsBySha = new Map();
             for (const t of allTags) {
                 const list = this.tagsBySha.get(t.sha) ?? [];
-                list.push(t.name);
+                list.push(t);
                 this.tagsBySha.set(t.sha, list);
             }
             if (raw.length === limit) {
@@ -125,7 +125,13 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
         const item = new vscode.TreeItem(entry.message || '(no message)');
         item.description = `${short} · ${entry.author} · ${entry.relativeDate}`;
         const tags = this.tagsBySha.get(entry.sha) ?? [];
-        const tagHtml = tags.map(t => `<span style="color:#e3b341">${escapeMd(t)}</span>`);
+        const remoteNames = this.gitService.getCachedRemoteTagNames();
+        const tagHtml = tags.map(t => {
+            const color = remoteNames.has(t.name)
+                ? 'rgba(0,150,100,0.9)'
+                : 'rgba(200,140,0,0.9)';
+            return `<span style="color:${color}">${escapeMd(t.name)}</span>`;
+        });
         const metaParts = [...tagHtml, short, escapeMd(entry.relativeDate), escapeMd(entry.author)].filter(Boolean);
         item.tooltip = new vscode.MarkdownString(
             `**${escapeMd(entry.message)}**\n\n${metaParts.join(' \u00b7 ')}`

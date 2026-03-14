@@ -31,6 +31,8 @@ export class GitService {
 
     /** Tag cache — invalidated when .git/refs/tags or packed-refs changes */
     private tagCache: TagInfo[] | null = null;
+    /** Remote tag names — populated in background when getTags() is first called */
+    private remoteTagNamesCache: Set<string> | null = null;
 
     private constructor(
         private readonly repoRoot: string,
@@ -301,12 +303,24 @@ export class GitService {
         if (this.tagCache) { return this.tagCache; }
         const tags = await this.run(() => this.fetchTags());
         this.tagCache = tags;
+        // Populate remote tag cache in background so tooltip coloring is available
+        if (!this.remoteTagNamesCache) {
+            this.getRemoteTagNames()
+                .then(names => { this.remoteTagNamesCache = names; })
+                .catch(() => {/* offline or no remotes */});
+        }
         return tags;
+    }
+
+    /** Returns the set of tag names known to exist on the remote, or an empty set if not yet loaded. */
+    getCachedRemoteTagNames(): Set<string> {
+        return this.remoteTagNamesCache ?? new Set();
     }
 
     /** Invalidate the tag cache so the next getTags() call re-fetches from git. */
     clearTagCache(): void {
         this.tagCache = null;
+        this.remoteTagNamesCache = null;
     }
 
     /** Return all stashes. */
