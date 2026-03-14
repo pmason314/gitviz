@@ -2,7 +2,7 @@
   "name": "gitviz",
   "displayName": "GitViz",
   "description": "Fast and lightweight sidebar tools and visualizations for git.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "pmason314",
   "icon": "resources/gitviz-icon.png",
   "license": "GPL-3.0-only",
@@ -42,7 +42,9 @@
         "viewType": "gitviz.rebaseEditor",
         "displayName": "GitViz Rebase Editor",
         "selector": [
-          { "filenamePattern": "git-rebase-todo" }
+          {
+            "filenamePattern": "git-rebase-todo"
+          }
         ],
         "priority": "default"
       },
@@ -50,9 +52,15 @@
         "viewType": "gitviz.commitMessageEditor",
         "displayName": "GitViz Commit Message Editor",
         "selector": [
-          { "filenamePattern": "COMMIT_EDITMSG" },
-          { "filenamePattern": "SQUASH_MSG" },
-          { "filenamePattern": "MERGE_MSG" }
+          {
+            "filenamePattern": "COMMIT_EDITMSG"
+          },
+          {
+            "filenamePattern": "SQUASH_MSG"
+          },
+          {
+            "filenamePattern": "MERGE_MSG"
+          }
         ],
         "priority": "default"
       }
