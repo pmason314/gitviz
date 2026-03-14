@@ -143,8 +143,8 @@ export class GitService {
     /**
      * Return the commit history for a file, following renames.
      */
-    async getFileHistory(filePath: string): Promise<FileHistoryEntry[]> {
-        return this.run(() => this.fetchFileHistory(filePath));
+    async getFileHistory(filePath: string, limit?: number): Promise<FileHistoryEntry[]> {
+        return this.run(() => this.fetchFileHistory(filePath, limit));
     }
 
     /**
@@ -261,10 +261,10 @@ export class GitService {
      * Return commits that touched a line range in a file (uses `git log -L`).
      * Capped at 10 seconds to avoid blocking on large histories.
      */
-    async getLineHistory(filePath: string, startLine: number, endLine: number): Promise<FileHistoryEntry[]> {
+    async getLineHistory(filePath: string, startLine: number, endLine: number, limit?: number): Promise<FileHistoryEntry[]> {
         const TIMEOUT_MS = 10_000;
         return Promise.race([
-            this.run(() => this.fetchLineHistory(filePath, startLine, endLine)),
+            this.run(() => this.fetchLineHistory(filePath, startLine, endLine, limit)),
             new Promise<never>((_, reject) =>
                 setTimeout(() => reject(new Error('Line history timed out after 10s')), TIMEOUT_MS)
             ),
@@ -440,6 +440,28 @@ export class GitService {
 
     async deleteTag(name: string): Promise<void> {
         await this.run(() => this.git.tag(['-d', name]));
+    }
+
+    async pushTag(name: string, remote: string): Promise<void> {
+        await this.run(() => this.git.raw(['push', remote, `refs/tags/${name}`]));
+    }
+
+    async getRemoteTagNames(remote?: string): Promise<Set<string>> {
+        let targetRemote = remote;
+        if (!targetRemote) {
+            const remotes = await this.getRemotes();
+            targetRemote = remotes.find(r => r.name === 'origin')?.name ?? remotes[0]?.name;
+        }
+        if (!targetRemote) { return new Set(); }
+        const output = await this.run(() =>
+            this.git.raw(['ls-remote', '--tags', '--refs', targetRemote!])
+        );
+        const names = new Set<string>();
+        for (const line of output.split('\n')) {
+            const m = line.match(/refs\/tags\/(.+)$/);
+            if (m) { names.add(m[1].trim()); }
+        }
+        return names;
     }
 
     async applyStash(ref: string): Promise<void> {
@@ -660,7 +682,7 @@ export class GitService {
         const output = await this.git.raw([
             'for-each-ref',
             '--sort=-creatordate',
-            `--format=%(refname:short)${SEP}%(*objectname:short)${SEP}%(objectname:short)${SEP}%(creatordate:short)${SEP}%(subject)`,
+            `--format=%(refname:short)${SEP}%(*objectname)${SEP}%(objectname)${SEP}%(creatordate:short)${SEP}%(subject)`,
             'refs/tags',
         ]);
         if (!output.trim()) { return []; }
@@ -861,15 +883,18 @@ export class GitService {
             });
     }
 
-    private async fetchFileHistory(filePath: string): Promise<FileHistoryEntry[]> {
+    private async fetchFileHistory(filePath: string, limit?: number): Promise<FileHistoryEntry[]> {
         const relativePath = path.relative(this.repoRoot, filePath);
-        const output = await this.git.raw([
+        const args: string[] = [
             'log',
             '--follow',
             '--format=%H\x1f%an\x1f%ae\x1f%aI\x1f%ar\x1f%s',
-            '--',
-            relativePath,
-        ]);
+        ];
+        if (limit !== undefined) {
+            args.push('-n', String(limit));
+        }
+        args.push('--', relativePath);
+        const output = await this.git.raw(args);
 
         if (!output.trim()) {
             return [];
@@ -918,16 +943,21 @@ export class GitService {
     private async fetchLineHistory(
         filePath: string,
         startLine: number,
-        endLine: number
+        endLine: number,
+        limit?: number
     ): Promise<FileHistoryEntry[]> {
         const relativePath = path.relative(this.repoRoot, filePath);
         const SEP = '\x1f';
-        const output = await this.git.raw([
+        const args: string[] = [
             'log',
             '--no-patch',
             `--format=%H${SEP}%an${SEP}%ae${SEP}%aI${SEP}%ar${SEP}%s`,
-            `-L${startLine},${endLine}:${relativePath}`,
-        ]);
+        ];
+        if (limit !== undefined) {
+            args.push('-n', String(limit));
+        }
+        args.push(`-L${startLine},${endLine}:${relativePath}`);
+        const output = await this.git.raw(args);
         if (!output.trim()) { return []; }
         // Only keep lines starting with a 40-char hex SHA + separator
         return output.split('\n')

@@ -240,7 +240,7 @@ canvas#graph-canvas {
 .badge-branch  { background: #1f6feb33; color: #58a6ff; border: 1px solid #58a6ff55; }
 .badge-current { background: #1a7f3744; color: #3fb950; border: 1px solid #3fb95066; }
 .badge-remote  { background: #6e768122; color: #8b949e; border: 1px solid #8b949e44; }
-.badge-tag     { background: #bb8009aa; color: #d29922; border: 1px solid #d2992266; }
+.badge-tag     { background: rgba(200,140,0,0.22); color: var(--vscode-foreground); border: 1px solid rgba(200,140,0,0.45); }
 .badge-head    { background: #6e40c9aa; color: #bc8cff; border: 1px solid #bc8cff55; }
 .commit-msg {
   overflow: hidden;

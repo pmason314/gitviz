@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { GitService } from '../git/GitService';
-import { CommitEntry } from '../git/types';
+import { CommitEntry, TagInfo } from '../git/types';
 
 export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposable {
     public static readonly viewType = 'gitlite.commits';
@@ -8,6 +8,7 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
     private _view?: vscode.WebviewView;
     private cachedCommits: CommitEntry[] = [];
     private cachedAuthors: string[] = [];
+    private cachedTags: TagInfo[] = [];
 
     constructor(private readonly gitService: GitService) {}
 
@@ -23,8 +24,14 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
         } catch {
             this.cachedAuthors = [];
         }
+        try {
+            this.cachedTags = await this.gitService.getTags();
+        } catch {
+            this.cachedTags = [];
+        }
         this._sendUpdate();
         this._sendAuthors();
+        this._sendTags();
     }
 
     setFilter(value: string): void {
@@ -36,7 +43,7 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
         webviewView.webview.options = { enableScripts: true };
         webviewView.webview.html = this._getHtml();
 
-        webviewView.webview.onDidReceiveMessage(async (msg: { type: string; sha?: string }) => {
+        webviewView.webview.onDidReceiveMessage(async (msg: { type: string; sha?: string; name?: string }) => {
             switch (msg.type) {
                 case 'openCommitDetails':
                     if (msg.sha) {
@@ -54,6 +61,44 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
                         vscode.window.showInformationMessage(`GitLite: Copied ${msg.sha.slice(0, 7)} to clipboard.`);
                     }
                     break;
+                case 'requestCreateTag': {
+                    if (!msg.sha) { break; }
+                    const tagName = await vscode.window.showInputBox({
+                        title: `Create Tag at ${msg.sha.slice(0, 7)}`,
+                        placeHolder: 'v1.0.0',
+                        validateInput: v => v.trim() ? undefined : 'Tag name cannot be empty',
+                    });
+                    if (!tagName) { break; }
+                    const annotation = await vscode.window.showInputBox({
+                        title: 'Tag Annotation (optional)',
+                        prompt: 'Leave empty to create a lightweight tag',
+                        placeHolder: 'e.g. Release v1.0.0',
+                    });
+                    if (annotation === undefined) { break; } // user pressed Escape
+                    try {
+                        await this.gitService.createTag(tagName.trim(), msg.sha, annotation.trim() || undefined);
+                        await this.refresh();
+                        await this.promptAndPushTag(tagName.trim());
+                    } catch (err) {
+                        vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+                    }
+                    break;
+                }
+                case 'requestDeleteTag': {
+                    if (!msg.name) { break; }
+                    const confirmed = await vscode.window.showWarningMessage(
+                        `Delete tag \"${msg.name}\"?  This cannot be undone.`, { modal: true }, 'Delete'
+                    );
+                    if (confirmed !== 'Delete') { break; }
+                    try {
+                        await this.gitService.deleteTag(msg.name);
+                        await this.refresh();
+                        vscode.window.showInformationMessage(`GitLite: Tag \"${msg.name}\" deleted.`);
+                    } catch (err) {
+                        vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+                    }
+                    break;
+                }
             }
         });
 
@@ -61,6 +106,7 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
             if (webviewView.visible) {
                 this._sendUpdate();
                 this._sendAuthors();
+                this._sendTags();
             }
         });
 
@@ -93,6 +139,66 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
     private _sendAuthors(): void {
         if (!this._view) { return; }
         this._view.webview.postMessage({ type: 'setAuthors', names: this.cachedAuthors });
+    }
+
+    private _sendTags(): void {
+        if (!this._view) { return; }
+        this._view.webview.postMessage({
+            type: 'setTags',
+            tags: this.cachedTags.map(t => ({ sha: t.sha, name: t.name })),
+        });
+        // Fetch remote status in background — don't block, silently fail if offline
+        this.gitService.getRemoteTagNames()
+            .then(names => this._sendTagStatus(names))
+            .catch(() => {/* offline or no remotes */});
+    }
+
+    private _sendTagStatus(remoteNames: Set<string>): void {
+        if (!this._view) { return; }
+        this._view.webview.postMessage({ type: 'setTagStatus', remoteNames: [...remoteNames] });
+    }
+
+    showTagsOnly(): void {
+        this._view?.webview.postMessage({ type: 'showTagsOnly' });
+    }
+
+    showAllCommits(): void {
+        this._view?.webview.postMessage({ type: 'showAllCommits' });
+    }
+
+    async promptAndPushTag(tagName: string): Promise<void> {
+        let remotes: import('../git/types').RemoteInfo[];
+        try {
+            remotes = await this.gitService.getRemotes();
+        } catch {
+            vscode.window.showInformationMessage(`GitLite: Tag "${tagName}" created.`);
+            return;
+        }
+        if (!remotes.length) {
+            vscode.window.showInformationMessage(`GitLite: Tag "${tagName}" created.`);
+            return;
+        }
+        let remote: string;
+        if (remotes.length === 1) {
+            const answer = await vscode.window.showInformationMessage(
+                `Tag "${tagName}" created. Push to ${remotes[0].name}?`, 'Push', 'Skip'
+            );
+            if (answer !== 'Push') { return; }
+            remote = remotes[0].name;
+        } else {
+            const picked = await vscode.window.showQuickPick(
+                remotes.map(r => r.name),
+                { title: `Push tag "${tagName}" to remote?`, placeHolder: 'Select remote, or press Escape to skip' }
+            );
+            if (!picked) { return; }
+            remote = picked;
+        }
+        try {
+            await this.gitService.pushTag(tagName, remote);
+            vscode.window.showInformationMessage(`GitLite: Tag "${tagName}" pushed to ${remote}.`);
+        } catch (err) {
+            vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+        }
     }
 
     dispose(): void { /* nothing to dispose */ }
@@ -177,6 +283,7 @@ body {
   margin-left: 4px; flex-shrink: 0;
 }
 .graph-btn { margin-left: 0; margin-right: 4px; }
+.copy-btn { padding-right: 0; }
 .row:hover .copy-btn, .row:hover .graph-btn { display: flex; }
 .copy-btn:hover, .graph-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
 .empty { padding: 6px 20px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
@@ -197,6 +304,7 @@ body {
 }
 .tip-meta { font-size: 0.85em; opacity: 0.8; margin-top: 2px; }
 .tip-sha { font-family: var(--vscode-editor-font-family, monospace); }
+.tip-tag { color: var(--vscode-editorWarning-foreground, rgba(200,140,0,0.9)); }
 #suggest {
   display: none;
   position: sticky;
@@ -218,6 +326,52 @@ body {
   text-overflow: ellipsis;
 }
 .sg-item:hover, .sg-item.active { background: var(--vscode-list-hoverBackground); }
+.tag-pill {
+  display: inline-block;
+  flex-shrink: 0;
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 0.78em;
+  line-height: 1.5;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.tag-pill.tag-local {
+  background: rgba(200, 140, 0, 0.22);
+  color: var(--vscode-foreground);
+  border: 1px solid rgba(200, 140, 0, 0.45);
+}
+.tag-pill.tag-synced {
+  background: rgba(0, 150, 100, 0.18);
+  color: var(--vscode-foreground);
+  border: 1px solid rgba(0, 150, 100, 0.38);
+}
+.ctx-menu {
+  display: none;
+  position: fixed;
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
+  color: var(--vscode-menu-foreground, var(--vscode-foreground));
+  padding: 4px 0;
+  min-width: 170px;
+  z-index: 500;
+  box-shadow: 0 4px 12px var(--vscode-widget-shadow, rgba(0,0,0,0.4));
+}
+.ctx-item {
+  padding: 3px 14px;
+  min-height: 22px;
+  line-height: 22px;
+  cursor: pointer;
+  font-size: 0.95em;
+  white-space: nowrap;
+}
+.ctx-item:hover { background: var(--vscode-menu-selectionBackground); color: var(--vscode-menu-selectionForeground); }
+.ctx-sep { border: none; border-top: 1px solid var(--vscode-menu-separatorBackground, var(--vscode-widget-border)); margin: 3px 0; }
+.ctx-del { color: var(--vscode-errorForeground); }
 </style>
 </head>
 <body>
@@ -232,6 +386,7 @@ body {
 </div>
 <div id="suggest"></div>
 <div id="list"></div>
+<div id="ctx" class="ctx-menu"></div>
 <div id="tip"></div>
 <div id="vtip"></div>
 <script>
@@ -244,6 +399,10 @@ var tip = document.getElementById('tip');
 var tipTimer;
 var allCommits = [];
 var allAuthors = [];
+var allTags = []; // [{sha, name}]
+var tagsBySha = {}; // sha -> [name,...]
+var tagStatus = {}; // name -> 'unknown'|'local'|'synced'
+var tagsOnly = false;
 var activeIdx = -1;
 
 function esc(s) {
@@ -260,6 +419,13 @@ var graphSvg = '<svg viewBox="0 0 16 16" fill="currentColor" width="14" height="
   + '<line x1="3" y1="5" x2="3" y2="11" stroke="currentColor" stroke-width="1.5"/>'
   + '<line x1="5" y1="3" x2="11" y2="7" stroke="currentColor" stroke-width="1.5"/>'
   + '<line x1="5" y1="13" x2="11" y2="9" stroke="currentColor" stroke-width="1.5"/>'
+  + '</svg>';
+var tagSvg = '<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">'
+  + '<path fill-rule="evenodd" clip-rule="evenodd" d="M12.4799 1H5.47991L0.979912 6.07L7.63991 12.73L13.9199 6.45L13.9499 6.28L12.9999 1.55L12.4799 1ZM12.0899 2L12.9299 6.08L7.63991 11.37L2.39991 6.13L6.35991 2H12.0899ZM10.5 6C11.3284 6 12 5.32843 12 4.5C12 3.67157 11.3284 3 10.5 3C9.67157 3 9 3.67157 9 4.5C9 5.32843 9.67157 6 10.5 6Z"/>'
+  + '</svg>';
+var tagDeleteSvg = '<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">'
+  + '<path fill-rule="evenodd" clip-rule="evenodd" d="M12.4799 1H5.47991L0.979912 6.07L7.63991 12.73L13.9199 6.45L13.9499 6.28L12.9999 1.55L12.4799 1ZM12.0899 2L12.9299 6.08L7.63991 11.37L2.39991 6.13L6.35991 2H12.0899ZM10.5 6C11.3284 6 12 5.32843 12 4.5C12 3.67157 11.3284 3 10.5 3C9.67157 3 9 3.67157 9 4.5C9 5.32843 9.67157 6 10.5 6Z"/>'
+  + '<line x1="2" y1="14" x2="14" y2="2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
   + '</svg>';
 
 function showSuggest(matches) {
@@ -323,9 +489,12 @@ function render() {
         })
       : allCommits;
   }
+  if (tagsOnly) {
+    shown = shown.filter(function(c) { return tagsBySha[c.sha] && tagsBySha[c.sha].length > 0; });
+  }
 
   if (!shown.length) {
-    lst.innerHTML = '<div class="empty">' + esc(q ? 'No commits matching "' + q + '"' : 'No commits') + '</div>';
+    lst.innerHTML = '<div class="empty">' + esc(tagsOnly ? 'No tagged commits' : (q ? 'No commits matching "' + q + '"' : 'No commits')) + '</div>';
     return;
   }
 
@@ -335,9 +504,19 @@ function render() {
       : '';
     var authRest = rawRest ? '\u00a0' + rawRest : '';
     var dateFirst = (c.shortDate || '') + (c.shortAuthor ? (c.shortDate ? ' \u00b7 ' : '') + c.shortAuthor : '');
+    var tagNames = tagsBySha[c.sha] || [];
+    var pillsHtml = tagNames.map(function(n) {
+      var st = tagStatus[n] || 'unknown';
+      var cls = 'tag-pill' + (st === 'local' ? ' tag-local' : st === 'synced' ? ' tag-synced' : '');
+      var pillTip = st === 'local' ? 'Local tag — not pushed to remote'
+                  : st === 'synced' ? 'Tag synced with remote'
+                  : 'Tag';
+      return '<span class="' + cls + '" data-tag="' + esc(n) + '" data-vtip="' + esc(pillTip) + '">' + esc(n) + '</span>';
+    }).join('');
     return '<div class="row" data-sha="' + esc(c.sha) + '" data-tooltip="' + esc(c.message) + '" data-date="' + esc(c.relativeDate || '') + '" data-author="' + esc(c.author || '') + '">'
       + '<button class="graph-btn" data-sha="' + esc(c.sha) + '" data-vtip="Open in Commit Graph">' + graphSvg + '</button>'
       + '<span class="msg">' + esc(c.message) + '</span>'
+      + pillsHtml
       + (dateFirst ? '<span class="date-first">' + esc(dateFirst) + '</span>' : '')
       + (authRest ? '<span class="auth-rest">' + esc(authRest) + '</span>' : '')
       + '<button class="copy-btn" data-sha="' + esc(c.sha) + '" data-vtip="Copy SHA">' + copySvg + '</button>'
@@ -354,21 +533,82 @@ lst.addEventListener('click', function(e) {
   if (row) { vsc.postMessage({type:'openCommitDetails', sha: row.dataset.sha}); }
 });
 
+var ctx = document.getElementById('ctx');
+var ctxSha = '';
+function showCtx(x, y, sha) {
+  ctxSha = sha;
+  var tagNames = tagsBySha[sha] || [];
+  var deleteItems = tagNames.map(function(n) {
+    return '<div class="ctx-item" data-action="deleteTag" data-name="' + esc(n) + '">'
+      + tagDeleteSvg + '\u00a0Delete Tag \u201c' + esc(n) + '\u201d</div>';
+  }).join('');
+  ctx.innerHTML = '<div class="ctx-item" data-action="openCommitDetails">Open Commit Details</div>'
+    + '<div class="ctx-item" data-action="openGraph">Open in Commit Graph</div>'
+    + '<div class="ctx-item" data-action="copySha">Copy SHA</div>'
+    + '<hr class="ctx-sep">'
+    + '<div class="ctx-item" data-action="createTag">' + tagSvg + '\u00a0Create Tag Here\u2026</div>'
+    + deleteItems;
+  ctx.style.display = 'block';
+  ctx.style.left = x + 'px';
+  ctx.style.top = y + 'px';
+  var cr = ctx.getBoundingClientRect();
+  if (cr.bottom > window.innerHeight - 4) { ctx.style.top = Math.max(4, y - cr.height) + 'px'; }
+  if (cr.right > window.innerWidth - 4) { ctx.style.left = Math.max(4, window.innerWidth - cr.width - 4) + 'px'; }
+}
+function hideCtx() { ctx.style.display = 'none'; ctxSha = ''; }
+
+lst.addEventListener('contextmenu', function(e) {
+  var row = e.target.closest('.row');
+  if (!row) { return; }
+  e.preventDefault();
+  showCtx(e.clientX, e.clientY, row.dataset.sha);
+});
+
+ctx.addEventListener('mousedown', function(e) {
+  var item = e.target.closest('[data-action]');
+  if (!item) { return; }
+  e.stopPropagation();
+  var action = item.dataset.action;
+  var sha = ctxSha;
+  hideCtx();
+  if (action === 'openCommitDetails') { vsc.postMessage({type:'openCommitDetails', sha: sha}); }
+  else if (action === 'openGraph')    { vsc.postMessage({type:'openGraph', sha: sha}); }
+  else if (action === 'copySha')      { vsc.postMessage({type:'copySha', sha: sha}); }
+  else if (action === 'createTag')    { vsc.postMessage({type:'requestCreateTag', sha: sha}); }
+  else if (action === 'deleteTag')    { vsc.postMessage({type:'requestDeleteTag', name: item.dataset.name}); }
+});
+
+document.addEventListener('mousedown', function(e) {
+  if (!ctx.contains(e.target)) { hideCtx(); }
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { hideCtx(); }
+});
+
 lst.addEventListener('mouseover', function(e) {
   var row = e.target.closest('.row');
   if (!row) { return; }
+  // Don't show commit tooltip when hovering icon buttons or tag pills (they show their own vtip)
+  if (e.target.closest('.copy-btn, .graph-btn, .tag-pill')) {
+    clearTimeout(tipTimer);
+    tip.style.display = 'none';
+    return;
+  }
   clearTimeout(tipTimer);
   tipTimer = setTimeout(function() {
     if (!row.dataset.tooltip) { return; }
     var sha7 = row.dataset.sha ? row.dataset.sha.slice(0, 7) : '';
     var date = row.dataset.date || '';
     var author = row.dataset.author || '';
-    var metaParts = [date, author].filter(Boolean).join('\u00a0\u00b7\u00a0');
+    var rowTags = tagsBySha[row.dataset.sha] || [];
+    var tagSpans = rowTags.map(function(t) { return '<span class="tip-tag">' + esc(t) + '</span>'; });
+    var shaSpan = sha7 ? '<span class="tip-sha">' + esc(sha7) + '</span>' : '';
+    var plainParts = [date, author].filter(Boolean).map(esc);
+    var allParts = tagSpans.concat(shaSpan ? [shaSpan] : []).concat(plainParts);
     var rect = row.getBoundingClientRect();
     tip.innerHTML = '<div>' + esc(row.dataset.tooltip || '') + '</div>'
       + '<div class="tip-meta">'
-      + (sha7 ? '<span class="tip-sha">' + esc(sha7) + '</span>' : '')
-      + (metaParts ? (sha7 ? '\u00a0\u00b7\u00a0' : '') + esc(metaParts) : '')
+      + allParts.join('\u00a0\u00b7\u00a0')
       + '</div>';
     tip.style.display = 'block';
     tip.style.left = rect.left + 'px';
@@ -450,6 +690,28 @@ window.addEventListener('message', function(e) {
     inp.focus();
   } else if (msg.type === 'setAuthors') {
     allAuthors = (msg.names || []).map(function(n) { return n.trim(); }).filter(Boolean);
+  } else if (msg.type === 'setTags') {
+    allTags = msg.tags || [];
+    tagsBySha = {};
+    tagStatus = {};
+    allTags.forEach(function(t) {
+      if (!tagsBySha[t.sha]) { tagsBySha[t.sha] = []; }
+      tagsBySha[t.sha].push(t.name);
+      tagStatus[t.name] = 'unknown';
+    });
+    render();
+  } else if (msg.type === 'setTagStatus') {
+    var remoteNames = msg.remoteNames || [];
+    allTags.forEach(function(t) {
+      tagStatus[t.name] = remoteNames.indexOf(t.name) >= 0 ? 'synced' : 'local';
+    });
+    render();
+  } else if (msg.type === 'showTagsOnly') {
+    tagsOnly = true;
+    render();
+  } else if (msg.type === 'showAllCommits') {
+    tagsOnly = false;
+    render();
   }
 });
 (function() {
@@ -460,14 +722,16 @@ window.addEventListener('message', function(e) {
     clearTimeout(vtipT);
     if (!el) { vtip.style.display = 'none'; return; }
     vtipT = setTimeout(function() {
-      var r = el.getBoundingClientRect();
       vtip.textContent = el.dataset.vtip;
       vtip.style.display = 'block';
-      vtip.style.left = r.left + 'px';
-      vtip.style.top = (r.bottom + 4) + 'px';
+      vtip.style.left = '0px'; // anchor at 0 to measure width cleanly
       var tr = vtip.getBoundingClientRect();
-      if (tr.bottom > window.innerHeight - 4) { vtip.style.top = Math.max(4, r.top - tr.height - 4) + 'px'; }
-      if (tr.right > window.innerWidth - 4) { vtip.style.left = Math.max(4, window.innerWidth - tr.width - 4) + 'px'; }
+      var r = el.getBoundingClientRect();
+      var left = Math.min(r.left, document.documentElement.clientWidth - tr.width - 4);
+      vtip.style.left = Math.max(4, left) + 'px';
+      var top = r.bottom + 4;
+      if (top + tr.height > window.innerHeight - 4) { top = Math.max(4, r.top - tr.height - 4); }
+      vtip.style.top = top + 'px';
     }, 500);
   });
   document.addEventListener('mouseout', function(e) {

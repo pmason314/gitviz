@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { Config } from '../config/Config';
 import { GitService } from '../git/GitService';
@@ -93,6 +94,11 @@ export class LineHeatmap implements vscode.Disposable {
             return;
         }
 
+        if (await isBinaryFile(document.uri.fsPath)) {
+            this.clearEditor(editor);
+            return;
+        }
+
         let blameMap: Awaited<ReturnType<GitService['getBlameForFile']>>;
         try {
             blameMap = await this.gitService.getBlameForFile(document.uri.fsPath);
@@ -156,6 +162,26 @@ export class LineHeatmap implements vscode.Disposable {
         }
 
         return types;
+    }
+}
+
+// -------------------------------------------------------------------------
+// Binary file detection
+// -------------------------------------------------------------------------
+
+/**
+ * Returns true if the file contains a null byte in the first 8 KB.
+ * Null bytes don't appear in plain-text files but are common in binary formats.
+ */
+async function isBinaryFile(fsPath: string): Promise<boolean> {
+    const BUF_SIZE = 8192;
+    const buf = Buffer.allocUnsafe(BUF_SIZE);
+    const handle = await fs.promises.open(fsPath, 'r');
+    try {
+        const { bytesRead } = await handle.read(buf, 0, BUF_SIZE, 0);
+        return buf.slice(0, bytesRead).includes(0x00);
+    } finally {
+        await handle.close();
     }
 }
 

@@ -104,19 +104,17 @@
           "name": "Worktrees",
           "visibility": "collapsed",
           "icon": "$(files)"
-        },
-        {
-          "id": "gitlite.tags",
-          "name": "Tags",
-          "visibility": "collapsed",
-          "icon": "$(tag)"
         }
       ]
     },
     "menus": {
       "commandPalette": [
         {
-          "command": "gitlite.tag.create",
+          "command": "gitlite.commits.showTagsOnly",
+          "when": "false"
+        },
+        {
+          "command": "gitlite.commits.showAllCommits",
           "when": "false"
         },
         {
@@ -156,6 +154,16 @@
           "group": "navigation@5"
         },
         {
+          "command": "gitlite.commits.showTagsOnly",
+          "when": "view == gitlite.commits && !gitlite.commits.tagsFilterActive",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitlite.commits.showAllCommits",
+          "when": "view == gitlite.commits && gitlite.commits.tagsFilterActive",
+          "group": "navigation@1"
+        },
+        {
           "command": "gitlite.branch.create",
           "when": "view == gitlite.branches",
           "group": "navigation@1"
@@ -169,11 +177,6 @@
           "command": "gitlite.branches.showAllBranches",
           "when": "view == gitlite.branches && gitlite.branches.showUntracked",
           "group": "navigation@3"
-        },
-        {
-          "command": "gitlite.tag.create",
-          "when": "view == gitlite.tags",
-          "group": "navigation@1"
         },
         {
           "command": "gitlite.stash.create",
@@ -241,16 +244,6 @@
           "command": "gitlite.branch.delete",
           "when": "viewItem == localBranch && view == gitlite.branches",
           "group": "2_destructive@1"
-        },
-        {
-          "command": "gitlite.tag.delete",
-          "when": "viewItem == tag && view == gitlite.tags",
-          "group": "1_tag@1"
-        },
-        {
-          "command": "gitlite.openCommitDetails",
-          "when": "viewItem == tag && view == gitlite.tags",
-          "group": "2_open@1"
         },
         {
           "command": "gitlite.stash.applyEntry",
@@ -438,13 +431,23 @@
         "icon": "$(trash)"
       },
       {
+        "command": "gitlite.commits.showTagsOnly",
+        "title": "Show Tagged Commits Only",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "gitlite.commits.showAllCommits",
+        "title": "Show All Commits",
+        "icon": "$(list-unordered)"
+      },
+      {
         "command": "gitlite.tag.create",
         "title": "GitLite: Create Tag",
         "icon": "$(add)"
       },
       {
         "command": "gitlite.tag.delete",
-        "title": "Delete Tag"
+        "title": "GitLite: Delete Tag"
       },
       {
         "command": "gitlite.stash.create",
@@ -582,14 +585,10 @@
           "default": 365,
           "description": "Number of days before a line reaches the coldest heatmap color."
         },
-        "gitlite.views.defaultLocation": {
-          "type": "string",
-          "enum": [
-            "gitlite",
-            "scm"
-          ],
-          "default": "gitlite",
-          "description": "Where to show GitLite views: in its own activity bar panel or in the Source Control panel."
+        "gitlite.history.maxCommits": {
+          "type": "number",
+          "default": 500,
+          "description": "Maximum number of commits to show in File History and Line History views. Increase for larger repositories."
         }
       }
     }

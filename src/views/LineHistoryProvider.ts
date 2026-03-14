@@ -1,21 +1,32 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { Config } from '../config/Config';
 import { GitService } from '../git/GitService';
 import { FileHistoryEntry } from '../git/types';
 
 const DEBOUNCE_MS = 500;
 
-export class LineHistoryProvider implements vscode.TreeDataProvider<FileHistoryEntry>, vscode.Disposable {
+/** Sentinel node rendered at the bottom of a truncated history list. */
+interface TruncatedNode { kind: 'truncated'; limit: number; }
+
+/** Sentinel node shown while a debounced async load is in progress. */
+interface LoadingNode { kind: 'loading'; }
+
+type LineHistoryNode = FileHistoryEntry | TruncatedNode | LoadingNode;
+
+export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryNode>, vscode.Disposable {
     private _onDidChangeTreeData = new vscode.EventEmitter<void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-    private entries: FileHistoryEntry[] = [];
+    private entries: LineHistoryNode[] = [];
+    private tagsBySha: Map<string, string[]> = new Map();
+    private loading = false;
     private currentFilePath: string | undefined;
     private currentLine = -1;
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
     private readonly disposables: vscode.Disposable[] = [];
 
-    constructor(private readonly gitService: GitService) {
+    constructor(private readonly gitService: GitService, private readonly config: Config) {
         // Initial load for whatever is already open
         const editor = vscode.window.activeTextEditor;
         if (editor?.document.uri.scheme === 'file') {
@@ -46,6 +57,9 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<FileHistoryE
         if (this.debounceTimer !== undefined) {
             clearTimeout(this.debounceTimer);
         }
+        // Show loading state immediately so stale entries don't linger
+        this.loading = true;
+        this._onDidChangeTreeData.fire();
         this.debounceTimer = setTimeout(() => {
             this.debounceTimer = undefined;
             this.load(filePath, line).catch(() => {/* ignore */});
@@ -55,21 +69,53 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<FileHistoryE
     private async load(filePath: string, line: number): Promise<void> {
         this.currentFilePath = filePath;
         this.currentLine = line;
+        const limit = this.config.historyMaxCommits();
         try {
-            this.entries = await this.gitService.getLineHistory(filePath, line, line);
+            const [raw, allTags] = await Promise.all([
+                this.gitService.getLineHistory(filePath, line, line, limit),
+                this.gitService.getTags(),
+            ]);
+            this.tagsBySha = new Map();
+            for (const t of allTags) {
+                const list = this.tagsBySha.get(t.sha) ?? [];
+                list.push(t.name);
+                this.tagsBySha.set(t.sha, list);
+            }
+            if (raw.length === limit) {
+                this.entries = [...raw, { kind: 'truncated', limit } as TruncatedNode];
+            } else {
+                this.entries = raw;
+            }
         } catch {
             this.entries = [];
         }
+        this.loading = false;
         this._onDidChangeTreeData.fire();
     }
 
-    getTreeItem(entry: FileHistoryEntry): vscode.TreeItem {
+    getTreeItem(node: LineHistoryNode): vscode.TreeItem {
+        if ('kind' in node) {
+            if (node.kind === 'loading') {
+                const item = new vscode.TreeItem('Loading…');
+                item.iconPath = new vscode.ThemeIcon('loading~spin');
+                return item;
+            }
+            // Truncated sentinel
+            const item = new vscode.TreeItem(`Showing first ${node.limit} commits — open terminal for full history`);
+            item.iconPath = new vscode.ThemeIcon('info');
+            return item;
+        }
+        const entry = node;
         const short = entry.sha.slice(0, 7);
         const item = new vscode.TreeItem(entry.message || '(no message)');
         item.description = `${short} · ${entry.author} · ${entry.relativeDate}`;
+        const tags = this.tagsBySha.get(entry.sha) ?? [];
+        const tagHtml = tags.map(t => `<span style="color:#e3b341">${escapeMd(t)}</span>`);
+        const metaParts = [...tagHtml, short, escapeMd(entry.relativeDate), escapeMd(entry.author)].filter(Boolean);
         item.tooltip = new vscode.MarkdownString(
-            `**${escapeMd(entry.message)}**\n\n${short} · ${escapeMd(entry.relativeDate)} · ${escapeMd(entry.author)}`
+            `**${escapeMd(entry.message)}**\n\n${metaParts.join(' \u00b7 ')}`
         );
+        item.tooltip.isTrusted = true;
         item.contextValue = 'historyEntry';
         item.iconPath = new vscode.ThemeIcon('git-commit');
         item.command = {
@@ -80,8 +126,11 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<FileHistoryE
         return item;
     }
 
-    getChildren(element?: FileHistoryEntry): FileHistoryEntry[] {
+    getChildren(element?: LineHistoryNode): LineHistoryNode[] {
         if (element) { return []; }
+        if (this.loading) {
+            return [{ kind: 'loading' }];
+        }
         return this.entries;
     }
 

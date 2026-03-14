@@ -12,7 +12,6 @@ import { LineHistoryProvider } from './views/LineHistoryProvider';
 import { HotFilesView } from './views/HotFilesView';
 import { CommitsView } from './views/CommitsView';
 import { BranchesProvider } from './views/BranchesProvider';
-import { TagsProvider } from './views/TagsProvider';
 import { StashesProvider } from './views/StashesProvider';
 import { WorktreesProvider } from './views/WorktreesProvider';
 import { CompareView } from './views/CompareView';
@@ -22,7 +21,7 @@ import { RebaseEditorProvider } from './editors/RebaseEditorProvider';
 import { CommitMessageEditorProvider } from './editors/CommitMessageEditorProvider';
 import { CommitDetailsPanel } from './webviews/CommitDetailsPanel';
 import { CommitGraphPanel } from './webviews/CommitGraphPanel';
-import { FileHistoryEntry, HotFileEntry, StashInfo, BranchInfo, TagInfo, WorktreeInfo } from './git/types';
+import { FileHistoryEntry, HotFileEntry, StashInfo, BranchInfo, WorktreeInfo } from './git/types';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const repoRoot = await detectRepoRoot();
@@ -31,11 +30,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
     }
 
-    // No repo found yet — wait for the user to open a folder
+    // No repo found yet — show stub items in tree views so the sidebar isn't blank
+    const noRepo = new NoRepoProvider();
+    const stubDisposables: vscode.Disposable[] = [
+        vscode.window.registerTreeDataProvider('gitlite.fileHistory', noRepo),
+        vscode.window.registerTreeDataProvider('gitlite.lineHistory', noRepo),
+        vscode.window.createTreeView('gitlite.branches',  { treeDataProvider: noRepo, showCollapseAll: false }),
+        vscode.window.createTreeView('gitlite.stashes',   { treeDataProvider: noRepo, showCollapseAll: false }),
+        vscode.window.createTreeView('gitlite.worktrees', { treeDataProvider: noRepo, showCollapseAll: false }),
+    ];
+    context.subscriptions.push(...stubDisposables);
+
+    // Wait for the user to open a folder with a git repo
     const watcher = vscode.workspace.onDidChangeWorkspaceFolders(async () => {
         const root = await detectRepoRoot();
         if (root) {
             watcher.dispose();
+            stubDisposables.forEach(d => d.dispose());
             await initExtension(context, root);
         }
     });
@@ -74,12 +85,11 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const inlineBlame = new InlineBlame(gitService, config);
     const heatmap = new LineHeatmap(gitService, config);
     const hoverProvider = new BlameHoverProvider(gitService, config);
-    const fileHistoryProvider = new FileHistoryProvider(gitService);
-    const lineHistoryProvider = new LineHistoryProvider(gitService);
+    const fileHistoryProvider = new FileHistoryProvider(gitService, config);
+    const lineHistoryProvider = new LineHistoryProvider(gitService, config);
     const hotFilesView = new HotFilesView(gitService);
     const commitsView = new CommitsView(gitService);
     const branchesProvider = new BranchesProvider(gitService);
-    const tagsProvider = new TagsProvider(gitService);
     const stashesProvider = new StashesProvider(gitService);
     const worktreesProvider = new WorktreesProvider(gitService);
     const compareView = new CompareView(gitService, context.extensionUri);
@@ -102,7 +112,6 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         hotFilesView,
         commitsView,
         branchesProvider,
-        tagsProvider,
         stashesProvider,
         worktreesProvider,
         compareView,
@@ -129,7 +138,6 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         vscode.window.registerWebviewViewProvider(HotFilesView.viewType, hotFilesView),
         vscode.window.registerWebviewViewProvider(CommitsView.viewType, commitsView),
         vscode.window.createTreeView('gitlite.branches',     { treeDataProvider: branchesProvider,     showCollapseAll: false }),
-        vscode.window.createTreeView('gitlite.tags',         { treeDataProvider: tagsProvider,         showCollapseAll: false }),
         vscode.window.createTreeView('gitlite.stashes',      { treeDataProvider: stashesProvider,      showCollapseAll: false }),
         vscode.window.createTreeView('gitlite.worktrees',     { treeDataProvider: worktreesProvider,     showCollapseAll: false }),
         vscode.window.registerWebviewViewProvider(CompareView.viewType, compareView),
@@ -137,7 +145,6 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
 
     // Eagerly load Phase 3 views
     void branchesProvider.refresh();
-    void tagsProvider.refresh();
     void stashesProvider.refresh();
     void worktreesProvider.refresh();
 
@@ -153,7 +160,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         let stashTimer:     ReturnType<typeof setTimeout> | undefined;
         let worktreeTimer:  ReturnType<typeof setTimeout> | undefined;
         const debounceBranches  = () => { clearTimeout(branchTimer);   branchTimer   = setTimeout(() => void branchesProvider.refresh(),  300); };
-        const debounceTags      = () => { clearTimeout(tagTimer);       tagTimer      = setTimeout(() => void tagsProvider.refresh(),     300); };
+        const debounceTags      = () => { clearTimeout(tagTimer);       tagTimer      = setTimeout(() => void commitsView.refresh(),       300); };
         const debounceStashes   = () => { clearTimeout(stashTimer);     stashTimer    = setTimeout(() => void stashesProvider.refresh(),  300); };
         const debounceWorktrees = () => { clearTimeout(worktreeTimer);  worktreeTimer = setTimeout(() => void worktreesProvider.refresh(), 300); };
 
@@ -513,15 +520,70 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         }),
 
         // ---------------------------------------------------------------------
-        // Phase 3 — Tags view
+        // Commits view — Tags filter
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitlite.tag.create', () => {
-            void vscode.commands.executeCommand('git.createTag');
+        vscode.commands.registerCommand('gitlite.commits.showTagsOnly', () => {
+            void vscode.commands.executeCommand('setContext', 'gitlite.commits.tagsFilterActive', true);
+            commitsView.showTagsOnly();
         }),
 
-        vscode.commands.registerCommand('gitlite.tag.delete', () => {
-            void vscode.commands.executeCommand('git.deleteTag');
+        vscode.commands.registerCommand('gitlite.commits.showAllCommits', () => {
+            void vscode.commands.executeCommand('setContext', 'gitlite.commits.tagsFilterActive', false);
+            commitsView.showAllCommits();
+        }),
+
+        // ---------------------------------------------------------------------
+        // Phase 3 — Tags (create/delete via Commits view)
+        // ---------------------------------------------------------------------
+
+        vscode.commands.registerCommand('gitlite.tag.create', async () => {
+            const tagName = await vscode.window.showInputBox({
+                title: 'Create Tag',
+                placeHolder: 'v1.0.0',
+                validateInput: v => v.trim() ? undefined : 'Tag name cannot be empty',
+            });
+            if (!tagName) { return; }
+            const annotation = await vscode.window.showInputBox({
+                title: 'Tag Annotation (optional)',
+                prompt: 'Leave empty to create a lightweight tag',
+                placeHolder: 'e.g. Release v1.0.0',
+            });
+            if (annotation === undefined) { return; }
+            try {
+                await gitService.createTag(tagName.trim(), undefined, annotation.trim() || undefined);
+                await commitsView.refresh();
+                await commitsView.promptAndPushTag(tagName.trim());
+            } catch (err) {
+                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+            }
+        }),
+
+        vscode.commands.registerCommand('gitlite.tag.delete', async () => {
+            let tags: import('./git/types').TagInfo[];
+            try {
+                tags = await gitService.getTags();
+            } catch {
+                vscode.window.showErrorMessage('GitLite: Could not fetch tags.');
+                return;
+            }
+            if (!tags.length) { vscode.window.showInformationMessage('No tags found.'); return; }
+            const picked = await vscode.window.showQuickPick(
+                tags.map(t => ({ label: t.name, description: t.sha.slice(0, 7) + (t.subject ? '  ' + t.subject : '') })),
+                { title: 'Delete Tag', placeHolder: 'Select a tag to delete' }
+            );
+            if (!picked) { return; }
+            const confirmed = await vscode.window.showWarningMessage(
+                `Delete Tag "${picked.label}"? This cannot be undone.`, { modal: true }, 'Delete'
+            );
+            if (confirmed !== 'Delete') { return; }
+            try {
+                await gitService.deleteTag(picked.label);
+                await commitsView.refresh();
+                vscode.window.showInformationMessage(`GitLite: Tag "${picked.label}" deleted.`);
+            } catch (err) {
+                vscode.window.showErrorMessage(`GitLite: ${(err as Error).message}`);
+            }
         }),
 
         // ---------------------------------------------------------------------
@@ -671,6 +733,16 @@ export function deactivate(): void {
 // -------------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------------
+
+/** Placeholder provider shown in all tree views when no git repository is detected. */
+class NoRepoProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+    getTreeItem(item: vscode.TreeItem): vscode.TreeItem { return item; }
+    getChildren(): vscode.TreeItem[] {
+        const item = new vscode.TreeItem('No Git repository detected');
+        item.iconPath = new vscode.ThemeIcon('warning');
+        return [item];
+    }
+}
 
 async function promptForSha(): Promise<string | undefined> {
     return vscode.window.showInputBox({

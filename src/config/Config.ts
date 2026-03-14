@@ -26,6 +26,9 @@ export class Config {
     heatmapCold(): string { return this.get('heatmap.coldColor', '#0066ff'); }
     heatmapThresholdDays(): number { return this.get('heatmap.ageThresholdDays', 365); }
 
+    // History views
+    historyMaxCommits(): number { return this.get('history.maxCommits', 500); }
+
     /**
      * Subscribe to any gitlite.* configuration change.
      * Returns the disposable so callers can add it to their subscriptions.
