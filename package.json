@@ -1,5 +1,5 @@
 {
-  "name": "gitlite",
+  "name": "gitlite-vsc",
   "displayName": "GitLite",
   "description": "Lightweight GitLens alternative — blame annotations, heatmap, history, and repository exploration without cloud sync or telemetry.",
   "version": "0.1.0",
