@@ -614,8 +614,9 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
         // Phase 3 — Stashes view
         // ---------------------------------------------------------------------
 
-        vscode.commands.registerCommand('gitviz.stash.create', () => {
-            void vscode.commands.executeCommand('git.stash');
+        vscode.commands.registerCommand('gitviz.stash.create', async () => {
+            await vscode.commands.executeCommand('git.stash');
+            void stashesProvider.refresh();
         }),
 
         vscode.commands.registerCommand('gitviz.stash.dropAll', async () => {
@@ -632,6 +633,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             await gitService.dropAllStashes().catch((err: Error) => {
                 vscode.window.showErrorMessage(`GitViz: ${err.message}`);
             });
+            void stashesProvider.refresh();
         }),
 
         vscode.commands.registerCommand('gitviz.stash.openDetails', async (node: StashInfo) => {
@@ -641,16 +643,19 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             });
         }),
 
-        vscode.commands.registerCommand('gitviz.stash.applyEntry', () => {
-            void vscode.commands.executeCommand('git.stashApply');
+        vscode.commands.registerCommand('gitviz.stash.applyEntry', async () => {
+            await vscode.commands.executeCommand('git.stashApply');
+            void stashesProvider.refresh();
         }),
 
-        vscode.commands.registerCommand('gitviz.stash.popEntry', () => {
-            void vscode.commands.executeCommand('git.stashPop');
+        vscode.commands.registerCommand('gitviz.stash.popEntry', async () => {
+            await vscode.commands.executeCommand('git.stashPop');
+            void stashesProvider.refresh();
         }),
 
-        vscode.commands.registerCommand('gitviz.stash.dropEntry', () => {
-            void vscode.commands.executeCommand('git.stashDrop');
+        vscode.commands.registerCommand('gitviz.stash.dropEntry', async () => {
+            await vscode.commands.executeCommand('git.stashDrop');
+            void stashesProvider.refresh();
         }),
 
         // ---------------------------------------------------------------------

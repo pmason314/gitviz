@@ -32,8 +32,11 @@ export class StashesProvider
     getTreeItem(element: StashNode): vscode.TreeItem {
         const item = new vscode.TreeItem(element.message, vscode.TreeItemCollapsibleState.None);
         item.description = element.relativeDate;
-        const branchLine = element.branch ? `\nStashed from branch: ${element.branch}` : '';
-        item.tooltip = `${element.message}${branchLine}\n${element.relativeDate}`;
+        const metaParts = [
+            element.branch ? `Stashed from \`${element.branch}\`` : undefined,
+            element.relativeDate,
+        ].filter(Boolean);
+        item.tooltip = new vscode.MarkdownString(`**${element.message}**\n\n${metaParts.join(' \u00b7 ')}`);
         item.iconPath = new vscode.ThemeIcon('inbox');
         item.contextValue = 'stash';
         item.command = {

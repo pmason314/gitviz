@@ -27,6 +27,24 @@ A fast, lightweight, and fully free extension with inline blame annotations, a v
 - **Commit Details** — panel showing message, author, date, full SHA, and per-file change breakdown with inline diff access; opens from any history view or the Commits sidebar
 - **Interactive Rebase editor** — replaces the plain-text `git-rebase-todo` editor with a drag-and-drop UI; supports pick, reword, edit, squash, fixup, and drop with keyboard shortcuts and live squash message preview.  Access via `Command Palette -> GitViz: Start Interactive Rebase`
 
+## Screenshots
+
+### Sidebar Views
+
+![GitViz sidebar views](https://raw.githubusercontent.com/pmason314/gitviz/main/resources/sidebar-screenshot.png)
+
+![GitViz additional sidebar views](https://raw.githubusercontent.com/pmason314/gitviz/main/resources/sidebar-screenshot-2.png)
+
+### Commit Graph
+
+![GitViz commit graph](https://raw.githubusercontent.com/pmason314/gitviz/main/resources/commit-graph-screenshot.png)
+
+### Interactive Rebase Editor
+
+![GitViz rebase editor](https://raw.githubusercontent.com/pmason314/gitviz/main/resources/rebase-screenshot.png)
+
+
+
 ## Requirements
 
 - VS Code 1.85+
