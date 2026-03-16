@@ -29,20 +29,19 @@ A fast, lightweight, and fully free extension with inline blame annotations, a v
 
 ## Screenshots
 
-### Sidebar Views
+### Interactive Rebase Editor
 
-![GitViz sidebar views](https://raw.githubusercontent.com/pmason314/gitviz/main/resources/sidebar-screenshot.png)
-
-![GitViz additional sidebar views](https://raw.githubusercontent.com/pmason314/gitviz/main/resources/sidebar-screenshot-2.png)
+![GitViz rebase editor](https://raw.githubusercontent.com/pmason314/gitviz/main/resources/rebase-screenshot.png)
 
 ### Commit Graph
 
 ![GitViz commit graph](https://raw.githubusercontent.com/pmason314/gitviz/main/resources/commit-graph-screenshot.png)
 
-### Interactive Rebase Editor
+### Sidebar Views
 
-![GitViz rebase editor](https://raw.githubusercontent.com/pmason314/gitviz/main/resources/rebase-screenshot.png)
+<img src="https://raw.githubusercontent.com/pmason314/gitviz/main/resources/sidebar-screenshot.png" alt="GitViz sidebar views" width="240" />
 
+<img src="https://raw.githubusercontent.com/pmason314/gitviz/main/resources/sidebar-screenshot-2.png" alt="GitViz additional sidebar views" width="240" />
 
 
 ## Requirements
