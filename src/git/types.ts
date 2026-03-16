@@ -89,6 +89,8 @@ export interface StashInfo {
     /** Stash ref, e.g. "stash@{0}" */
     ref: string;
     message: string;
+    /** Branch the stash was created on, e.g. "main" */
+    branch: string;
     relativeDate: string;
 }
 

@@ -729,16 +729,20 @@ export class GitService {
         const SEP = '\x1f';
         let output: string;
         try {
-            output = await this.git.raw(['stash', 'list', `--format=%gd${SEP}%s${SEP}%cr`]);
+            output = await this.git.raw(['stash', 'list', `--format=%gd${SEP}%s${SEP}%cr${SEP}%gs`]);
         } catch {
             return [];
         }
         if (!output.trim()) { return []; }
         return output.trim().split('\n').map((line) => {
-            const [ref, message, relativeDate] = line.split(SEP);
+            const [ref, rawMessage, relativeDate, reflogSubject] = line.split(SEP);
+            const branchMatch = reflogSubject?.trim().match(/^(?:WIP on|On) ([^:]+):/);
+            const branch = branchMatch ? branchMatch[1].trim() : '';
+            const message = rawMessage.trim().replace(/^(?:WIP on|On) [^:]+:\s*/, '');
             return {
                 ref: ref.trim(),
-                message: message.trim(),
+                message,
+                branch,
                 relativeDate: relativeDate.trim(),
             };
         });
