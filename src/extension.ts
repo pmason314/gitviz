@@ -643,18 +643,35 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
             });
         }),
 
-        vscode.commands.registerCommand('gitviz.stash.applyEntry', async () => {
-            await vscode.commands.executeCommand('git.stashApply');
+        vscode.commands.registerCommand('gitviz.stash.applyEntry', async (node: StashInfo) => {
+            if (!node?.ref) { return; }
+            try {
+                await gitService.applyStash(node.ref);
+                vscode.window.showInformationMessage(`GitViz: Applied stash "${node.message}"`);
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`GitViz: ${err.message}`);
+            }
             void stashesProvider.refresh();
         }),
 
-        vscode.commands.registerCommand('gitviz.stash.popEntry', async () => {
-            await vscode.commands.executeCommand('git.stashPop');
+        vscode.commands.registerCommand('gitviz.stash.popEntry', async (node: StashInfo) => {
+            if (!node?.ref) { return; }
+            try {
+                await gitService.popStash(node.ref);
+                vscode.window.showInformationMessage(`GitViz: Popped stash "${node.message}"`);
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`GitViz: ${err.message}`);
+            }
             void stashesProvider.refresh();
         }),
 
-        vscode.commands.registerCommand('gitviz.stash.dropEntry', async () => {
-            await vscode.commands.executeCommand('git.stashDrop');
+        vscode.commands.registerCommand('gitviz.stash.dropEntry', async (node: StashInfo) => {
+            if (!node?.ref) { return; }
+            try {
+                await gitService.dropStash(node.ref);
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`GitViz: ${err.message}`);
+            }
             void stashesProvider.refresh();
         }),
 

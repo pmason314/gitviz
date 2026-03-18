@@ -119,8 +119,8 @@ export class InlineBlame implements vscode.Disposable {
             return;
         }
 
-        const line = editor.selection.active.line;
-        const lineNumber = line + 1; // git blame is 1-indexed
+        // Collect unique 0-based line numbers from all cursors
+        const lines = [...new Set(editor.selections.map((s) => s.active.line))];
 
         let blameMap: Map<number, BlameInfo> | undefined;
         try {
@@ -130,28 +130,27 @@ export class InlineBlame implements vscode.Disposable {
             return;
         }
 
-        const info = blameMap.get(lineNumber);
-        if (!info) {
+        const decorations: vscode.DecorationOptions[] = [];
+        for (const line of lines) {
+            const lineNumber = line + 1; // git blame is 1-indexed
+            const info = blameMap.get(lineNumber);
+            if (!info) { continue; }
+
+            const text = info.sha === UNCOMMITTED_SHA
+                ? 'Not yet committed'
+                : `   ${formatBlameString(info, this.config.blameFormat(), this.config.blameDate())}`;
+
+            const lineLength = editor.document.lineAt(line).text.length;
+            const range = new vscode.Range(line, lineLength, line, lineLength);
+            decorations.push({ range, renderOptions: { after: { contentText: text } } });
+        }
+
+        if (decorations.length === 0) {
             this.clearEditor(editor);
             return;
         }
 
-        if (info.sha === UNCOMMITTED_SHA) {
-            this.renderText(editor, line, 'Not yet committed');
-            return;
-        }
-
-        const text = formatBlameString(info, this.config.blameFormat(), this.config.blameDate());
-        this.renderText(editor, line, `   ${text}`);
-    }
-
-    private renderText(editor: vscode.TextEditor, line: number, text: string): void {
-        const lineLength = editor.document.lineAt(line).text.length;
-        const range = new vscode.Range(line, lineLength, line, lineLength);
-        editor.setDecorations(this.decorationType, [{
-            range,
-            renderOptions: { after: { contentText: text } },
-        }]);
+        editor.setDecorations(this.decorationType, decorations);
     }
 
     private clearEditor(editor: vscode.TextEditor): void {
