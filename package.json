@@ -2,7 +2,7 @@
   "name": "gitviz",
   "displayName": "GitViz",
   "description": "Fast, lightweight visualizations and sidebar tools to help with git and version control.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "pmason314",
   "icon": "resources/gitviz-icon.png",
   "license": "GPL-3.0-only",
