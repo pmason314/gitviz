@@ -32,12 +32,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // No repo found yet — show stub items in tree views so the sidebar isn't blank
     const noRepo = new NoRepoProvider();
+    const noRepoWebview = new NoRepoWebviewViewProvider(context.extensionUri);
     const stubDisposables: vscode.Disposable[] = [
         vscode.window.registerTreeDataProvider('gitviz.fileHistory', noRepo),
         vscode.window.registerTreeDataProvider('gitviz.lineHistory', noRepo),
         vscode.window.createTreeView('gitviz.branches',  { treeDataProvider: noRepo, showCollapseAll: false }),
         vscode.window.createTreeView('gitviz.stashes',   { treeDataProvider: noRepo, showCollapseAll: false }),
         vscode.window.createTreeView('gitviz.worktrees', { treeDataProvider: noRepo, showCollapseAll: false }),
+        vscode.window.registerWebviewViewProvider(HotFilesView.viewType, noRepoWebview),
+        vscode.window.registerWebviewViewProvider(CommitsView.viewType, noRepoWebview),
+        vscode.window.registerWebviewViewProvider(CompareView.viewType, noRepoWebview),
     ];
     context.subscriptions.push(...stubDisposables);
 
@@ -787,6 +791,40 @@ class NoRepoProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
         const item = new vscode.TreeItem('No Git repository detected');
         item.iconPath = new vscode.ThemeIcon('warning');
         return [item];
+    }
+}
+
+/** Placeholder provider shown in webview views when no git repository is detected. */
+class NoRepoWebviewViewProvider implements vscode.WebviewViewProvider {
+    constructor(private readonly extensionUri: vscode.Uri) {}
+
+    resolveWebviewView(webviewView: vscode.WebviewView): void {
+        const codiconsUri = webviewView.webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css'),
+        );
+        webviewView.webview.options = {
+            enableScripts: false,
+            localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@vscode', 'codicons', 'dist')],
+        };
+        webviewView.webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webviewView.webview.cspSource}; style-src ${webviewView.webview.cspSource} 'unsafe-inline';">
+  <link rel="stylesheet" href="${codiconsUri}">
+  <style>
+    body {
+      display: flex; align-items: center;
+      padding: 4px 12px; margin: 0;
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      color: var(--vscode-foreground);
+    }
+    .codicon { margin-right: 6px; }
+  </style>
+</head>
+<body><i class="codicon codicon-warning"></i>No Git repository detected</body>
+</html>`;
     }
 }
 

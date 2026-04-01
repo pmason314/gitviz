@@ -21,6 +21,8 @@ export class InlineBlame implements vscode.Disposable {
     private readonly disposables: vscode.Disposable[] = [];
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
     private enabled: boolean;
+    /** Last rendered items, used to reposition decorations on keystroke without a git round-trip. */
+    private activeItems: Array<{ line: number; text: string }> = [];
 
     constructor(
         private readonly gitService: GitService,
@@ -38,6 +40,19 @@ export class InlineBlame implements vscode.Disposable {
         });
 
         this.disposables.push(
+            vscode.workspace.onDidChangeTextDocument((e) => {
+                const editor = vscode.window.activeTextEditor;
+                if (!editor || editor.document !== e.document || this.activeItems.length === 0) { return; }
+                // Immediately reposition the decoration to the new end-of-line so the
+                // cursor never appears after the annotation while the debounce is pending.
+                const repositioned: vscode.DecorationOptions[] = this.activeItems.map(({ line, text }) => {
+                    const lineLength = editor.document.lineAt(line).text.length;
+                    const range = new vscode.Range(line, lineLength, line, lineLength);
+                    return { range, renderOptions: { after: { contentText: text } } };
+                });
+                editor.setDecorations(this.decorationType, repositioned);
+                this.scheduleUpdate(editor);
+            }),
             vscode.window.onDidChangeTextEditorSelection((e) => {
                 this.scheduleUpdate(e.textEditor);
             }),
@@ -150,10 +165,15 @@ export class InlineBlame implements vscode.Disposable {
             return;
         }
 
+        this.activeItems = decorations.map(d => ({
+            line: d.range.start.line,
+            text: (d.renderOptions!.after as { contentText: string }).contentText,
+        }));
         editor.setDecorations(this.decorationType, decorations);
     }
 
     private clearEditor(editor: vscode.TextEditor): void {
+        this.activeItems = [];
         editor.setDecorations(this.decorationType, []);
     }
 
