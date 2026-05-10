@@ -30,10 +30,12 @@ export class BlameHoverProvider implements vscode.HoverProvider, vscode.Disposab
         if (document.uri.scheme !== 'file') { return null; }
         if (document.lineCount > this.config.blameMaxLines()) { return null; }
 
-        // Only show hover on the line that currently has the inline blame annotation
+        // Only show hover on the line that currently has the inline blame annotation,
+        // and only when hovering over the ghost annotation text itself (past end of real content).
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document.uri.toString() !== document.uri.toString()) { return null; }
         if (position.line !== editor.selection.active.line) { return null; }
+        if (position.character < document.lineAt(position.line).text.length) { return null; }
 
         const lineNumber = position.line + 1; // 1-indexed
 
