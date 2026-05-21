@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { logger } from '../utils/logger';
 import { GitService } from '../git/GitService';
 import { BranchInfo } from '../git/types';
 
@@ -53,7 +54,7 @@ export class BranchesProvider
         try {
             this.localBranches = await this.gitService.getBranches();
         } catch (err) {
-            console.error('[GitViz] BranchesProvider: failed to load local branches', err);
+            logger.error('BranchesProvider: failed to load local branches', err);
             this.localBranches = [];
         }
 
@@ -70,7 +71,7 @@ export class BranchesProvider
                 }))
             );
         } catch (err) {
-            console.error('[GitViz] BranchesProvider: failed to load remote branches', err);
+            logger.error('BranchesProvider: failed to load remote branches', err);
             this.remoteBranches = [];
         }
 

@@ -31,7 +31,7 @@ export class HotFilesSearchView implements vscode.WebviewViewProvider, vscode.Di
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { padding: 5px 8px; background: transparent; overflow: hidden; }
+  body { padding: 5px 18px 5px 8px; background: transparent; overflow: hidden; }
   .row {
     display: flex;
     align-items: center;

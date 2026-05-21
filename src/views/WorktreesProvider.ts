@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { logger } from '../utils/logger';
 import { GitService } from '../git/GitService';
 import { WorktreeInfo } from '../git/types';
 
@@ -24,7 +25,7 @@ export class WorktreesProvider
                 contextValue: (w.path === repoRoot ? 'worktreeCurrent' : 'worktree') as 'worktree' | 'worktreeCurrent',
             }));
         } catch (err) {
-            console.error('[GitViz] WorktreesProvider: failed to load worktrees', err);
+            logger.error('WorktreesProvider: failed to load worktrees', err);
             this.worktrees = [];
         }
         this._onDidChangeTreeData.fire();

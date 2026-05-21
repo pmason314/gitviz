@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { logger } from '../utils/logger';
 import { Config } from '../config/Config';
 import { GitService } from '../git/GitService';
 import { FileHistoryEntry, TagInfo } from '../git/types';
@@ -89,7 +90,7 @@ export class FileHistoryProvider implements vscode.TreeDataProvider<HistoryNode>
             }
             return entries;
         } catch (err) {
-            console.error('[GitViz] FileHistoryProvider: failed to load file history', err);
+            logger.error('FileHistoryProvider: failed to load file history', err);
             return [];
         }
     }

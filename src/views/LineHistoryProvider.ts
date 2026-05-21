@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { logger } from '../utils/logger';
 import { Config } from '../config/Config';
 import { GitService } from '../git/GitService';
 import { FileHistoryEntry, TagInfo } from '../git/types';
@@ -64,7 +65,7 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
         this.debounceTimer = setTimeout(() => {
             this.debounceTimer = undefined;
             this.load(filePath, line).catch((err) => {
-                console.error('[GitViz] LineHistoryProvider: unhandled error in load', err);
+                logger.error('LineHistoryProvider: unhandled error in load', err);
             });
         }, DEBOUNCE_MS);
     }
@@ -94,7 +95,10 @@ export class LineHistoryProvider implements vscode.TreeDataProvider<LineHistoryN
             }
         } catch (err) {
             if (generation !== this.loadGeneration) { return; }
-            console.error('[GitViz] LineHistoryProvider: failed to load line history', err);
+            const msg = err instanceof Error ? err.message : String(err);
+            if (!msg.includes('There is no path')) {
+                logger.error('LineHistoryProvider: failed to load line history', err);
+            }
             this.entries = [];
         }
         this.loading = false;

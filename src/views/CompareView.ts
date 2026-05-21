@@ -82,14 +82,25 @@ function buildHtml(codiconsUri: string, cspSource: string): string {
   <link rel="stylesheet" href="${codiconsUri}">
   <style>
     * { box-sizing: border-box; }
+    html { height: 100%; }
     body {
       font-family: var(--vscode-font-family);
       font-size: var(--vscode-font-size);
       color: var(--vscode-foreground);
       background: transparent;
-      padding: 5px 8px 6px;
-      margin: 0;
+      height: 100%; overflow: hidden;
+      padding: 0; margin: 0;
     }
+    #scroll-root {
+      height: 100%; width: calc(100% - 10px);
+      overflow-y: auto; overflow-x: clip;
+      scrollbar-width: thin;
+      scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121,121,121,0.4)) transparent;
+      padding: 5px 8px 6px;
+    }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background, rgba(121,121,121,0.4)); border-radius: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
     .field { margin-bottom: 6px; }
     label {
       display: block;
@@ -148,6 +159,7 @@ function buildHtml(codiconsUri: string, cspSource: string): string {
   </style>
 </head>
 <body>
+<div id="scroll-root">
   <div class="field">
     <label>Base</label>
     <div class="input-row">
@@ -167,6 +179,7 @@ function buildHtml(codiconsUri: string, cspSource: string): string {
     </div>
   </div>
   <button class="compare-btn" id="btn">Compare</button>
+</div>
   <div id="vtip"></div>
   <script>
     const vsc = acquireVsCodeApi();

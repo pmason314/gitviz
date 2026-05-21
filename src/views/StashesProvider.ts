@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { logger } from '../utils/logger';
 import { GitService } from '../git/GitService';
 import { StashInfo } from '../git/types';
 
@@ -19,7 +20,7 @@ export class StashesProvider
             const entries = await this.gitService.getStashes();
             this.stashes = entries.map(s => ({ ...s, contextValue: 'stash' as const }));
         } catch (err) {
-            console.error('[GitViz] StashesProvider: failed to load stashes', err);
+            logger.error('StashesProvider: failed to load stashes', err);
             this.stashes = [];
         }
         this._onDidChangeTreeData.fire();

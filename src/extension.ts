@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { initLogger } from './utils/logger';
 import { GitService } from './git/GitService';
 import { BlameCache } from './git/BlameCache';
 import { CommitCache } from './git/CommitCache';
@@ -24,6 +25,10 @@ import { CommitGraphPanel } from './webviews/CommitGraphPanel';
 import { FileHistoryEntry, HotFileEntry, StashInfo, BranchInfo, WorktreeInfo } from './git/types';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+    const logChannel = vscode.window.createOutputChannel('GitViz', { log: true });
+    context.subscriptions.push(logChannel);
+    initLogger(logChannel);
+
     const repoRoot = await detectRepoRoot();
     if (repoRoot) {
         await initExtension(context, repoRoot);

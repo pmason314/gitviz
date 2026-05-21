@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { logger } from '../utils/logger';
 import { GitService } from '../git/GitService';
 import { CommitEntry, TagInfo } from '../git/types';
 
@@ -18,20 +19,20 @@ export class CommitsView implements vscode.WebviewViewProvider, vscode.Disposabl
         try {
             this.cachedCommits = await this.gitService.getCommitsOnBranch(undefined, 200);
         } catch (err) {
-            console.error('[GitViz] CommitsView: failed to load commits', err);
+            logger.error('CommitsView: failed to load commits', err);
             this.cachedCommits = [];
         }
         try {
             const contributors = await this.gitService.getContributors();
             this.cachedAuthors = contributors.map(c => c.name).filter(Boolean);
         } catch (err) {
-            console.error('[GitViz] CommitsView: failed to load contributors', err);
+            logger.error('CommitsView: failed to load contributors', err);
             this.cachedAuthors = [];
         }
         try {
             this.cachedTags = await this.gitService.getTags();
         } catch (err) {
-            console.error('[GitViz] CommitsView: failed to load tags', err);
+            logger.error('CommitsView: failed to load tags', err);
             this.cachedTags = [];
         }
         this._sendUpdate();

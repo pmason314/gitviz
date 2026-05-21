@@ -5,12 +5,29 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
 body {
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
   color: var(--vscode-foreground);
   background: transparent;
-  overflow-x: clip;}
+  height: 100%;
+  overflow: hidden;
+}
+#scroll-root {
+  height: 100%;
+  width: calc(100% - 10px);
+  overflow-y: auto;
+  overflow-x: clip;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121,121,121,0.4)) transparent;
+}
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(121,121,121,0.4));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track { background: transparent; }
 .search-wrap {
   padding: 5px 8px 3px;
   position: sticky;
@@ -169,6 +186,7 @@ body {
 </style>
 </head>
 <body>
+<div id="scroll-root">
 <div class="search-wrap">
   <div class="search-row">
     <svg class="s-icon" viewBox="0 0 16 16" fill="currentColor">
@@ -180,6 +198,7 @@ body {
 </div>
 <div id="suggest"></div>
 <div id="list"></div>
+</div>
 <div id="ctx" class="ctx-menu"></div>
 <div id="tip"></div>
 <div id="vtip"></div>
