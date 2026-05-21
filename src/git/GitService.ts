@@ -280,8 +280,8 @@ export class GitService {
      * Return files sorted by commit frequency since the given date (or all time).
      * Capped at 50 entries.
      */
-    async getHotFiles(since: Date | null): Promise<HotFileEntry[]> {
-        return this.run(() => this.fetchHotFiles(since));
+    async getHotFiles(since: Date | null, author?: string): Promise<HotFileEntry[]> {
+        return this.run(() => this.fetchHotFiles(since, author));
     }
 
     // =========================================================================
@@ -1004,10 +1004,14 @@ export class GitService {
             });
     }
 
-    private async fetchHotFiles(since: Date | null): Promise<HotFileEntry[]> {
+    private async fetchHotFiles(since: Date | null, author?: string): Promise<HotFileEntry[]> {
         const args: string[] = ['log', '--format=COMMIT:%an', '--name-only', '--max-count=2000'];
         if (since) {
             args.push(`--after=${since.toISOString()}`);
+        }
+        if (author) {
+            const escaped = author.replace(/[.+*?()\[\]{}|^$\\]/g, '\\$&');
+            args.push(`--author=${escaped}`);
         }
         const output = await this.git.raw(args);
         if (!output.trim()) { return []; }

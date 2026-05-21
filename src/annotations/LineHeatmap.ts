@@ -10,7 +10,7 @@ const NUM_BUCKETS = 10;
  * it was changed. Hotter colors = more recently changed; cooler = older.
  *
  * Performance contract:
- *   - Reuses blame data already held by BlameCache — zero additional git calls.
+ *   - Reuses blame data already held by BlameCache.
  *   - Pre-creates NUM_BUCKETS TextEditorDecorationType objects at construction.
  *   - One O(N) pass groups lines into buckets; then NUM_BUCKETS setDecorations calls total.
  *   - Background uses alpha-blended color so text stays readable.

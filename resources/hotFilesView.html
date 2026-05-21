@@ -34,8 +34,12 @@ body {
   top: 0;
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .search-row {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -61,6 +65,16 @@ body {
   opacity: 0.6; padding: 0; font-size: 12px; line-height: 1; width: 14px; height: 14px;
 }
 .s-clear:hover { opacity: 1; }
+.mine-btn {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; outline: none;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  opacity: 0.6; cursor: pointer; padding: 3px; border-radius: 3px;
+  height: 24px; width: 24px;
+}
+.mine-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
+.mine-btn.active { opacity: 1; background: var(--vscode-toolbar-activeBackground, rgba(90,93,94,0.31)); }
 .row {
   display: flex; align-items: center;
   padding: 1px 8px 1px 20px;
@@ -88,6 +102,7 @@ body {
 .hist-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
 .heat-high   { color: var(--vscode-gitviz-hotFile-heatHigh,   #b8784e); }
 .heat-medium { color: var(--vscode-gitviz-hotFile-heatMedium, #9e8a42); }
+.heat-cold   { color: var(--vscode-descriptionForeground); }
 .empty { padding: 6px 20px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
 #vtip { display: none; position: fixed; background: var(--vscode-editorHoverWidget-background); border: 1px solid var(--vscode-editorHoverWidget-border); color: var(--vscode-editorHoverWidget-foreground); padding: 2px 6px; font-size: 0.85em; white-space: nowrap; pointer-events: none; z-index: 1000; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,0.36)); }
 </style>
@@ -102,6 +117,7 @@ body {
     <input class="s-input" id="f" type="text" placeholder="Filter by path or glob&#x2026;" autocomplete="off" spellcheck="false"/>
     <button class="s-clear" id="c" data-vtip="Clear filter">&#x2715;</button>
   </div>
+  <button class="mine-btn" id="mine" data-vtip="Show only my hot files"><svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M2 14.5a6 6 0 0 1 12 0H2z"/></svg></button>
 </div>
 <div id="list"></div>
 </div>
@@ -110,9 +126,14 @@ body {
 var vsc = acquireVsCodeApi();
 var inp = document.getElementById('f');
 var clr = document.getElementById('c');
+var mine = document.getElementById('mine');
 var lst = document.getElementById('list');
 var files = [];
 var emptyMsg = null;
+
+mine.addEventListener('click', function() {
+  vsc.postMessage({type: 'toggleMyFiles'});
+});
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -167,6 +188,7 @@ window.addEventListener('message', function(e) {
   if (msg.type === 'update') {
     files = msg.files || [];
     emptyMsg = msg.emptyMessage || null;
+    mine.classList.toggle('active', !!msg.myFilesOnly);
     render();
   }
 });

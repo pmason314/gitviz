@@ -1,6 +1,6 @@
 # GitViz
 
-A fast, lightweight, and fully free extension with inline blame annotations, a visual commit graph, and a variety of sidebar utilities and other source control tools for exploring and analyzing repository history.  Zero forced account linking, AI integration, or telemetry.  Heavily inspired by [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens).
+A fast, lightweight, and fully free extension with inline blame annotations, a visual commit graph, and a variety of sidebar utilities and other source control tools for exploring and analyzing repository history.  No account linking or telemetry.  Heavily inspired by [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens).
 
 ## Features
 
@@ -53,30 +53,30 @@ A fast, lightweight, and fully free extension with inline blame annotations, a v
 
 All settings are under the `gitviz.*` namespace and configurable via **Settings** (`Ctrl+,`).
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `gitviz.blame.enabled` | `true` | Enable inline blame annotations |
-| `gitviz.blame.format` | `{author}, {date} · {message\|60}` | Format string; tokens: `{author}`, `{authorEmail}`, `{date}`, `{sha}`, `{message\|N}` |
-| `gitviz.blame.dateFormat` | `relative` | `relative`, `absolute`, or `iso` |
-| `gitviz.blame.maxLines` | `10000` | Skip blame for files over this many lines |
-| `gitviz.blame.maxFileSizeKb` | `1024` | Skip blame for files over this size (KB) |
-| `gitviz.heatmap.enabled` | `false` | Enable line heatmap |
-| `gitviz.heatmap.hotColor` | `#ff6600` | Color for recently changed lines |
-| `gitviz.heatmap.coldColor` | `#0066ff` | Color for old lines |
-| `gitviz.heatmap.ageThresholdDays` | `365` | Days until a line reaches the coldest color in the line heatmap |
-| `gitviz.history.maxCommits` | `500` | Max commits shown in File/Line History |
+| Setting                           | Default                            | Description                                                                           |
+| --------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
+| `gitviz.blame.enabled`            | `true`                             | Enable inline blame annotations                                                       |
+| `gitviz.blame.format`             | `{author}, {date} · {message\|60}` | Format string; tokens: `{author}`, `{authorEmail}`, `{date}`, `{sha}`, `{message\|N}` |
+| `gitviz.blame.dateFormat`         | `relative`                         | `relative`, `absolute`, or `iso`                                                      |
+| `gitviz.blame.maxLines`           | `10000`                            | Skip blame for files over this many lines                                             |
+| `gitviz.blame.maxFileSizeKb`      | `1024`                             | Skip blame for files over this size (KB)                                              |
+| `gitviz.heatmap.enabled`          | `false`                            | Enable line heatmap                                                                   |
+| `gitviz.heatmap.hotColor`         | `#ff6600`                          | Color for recently changed lines                                                      |
+| `gitviz.heatmap.coldColor`        | `#0066ff`                          | Color for old lines                                                                   |
+| `gitviz.heatmap.ageThresholdDays` | `365`                              | Days until a line reaches the coldest color in the line heatmap                       |
+| `gitviz.history.maxCommits`       | `500`                              | Max commits shown in File/Line History                                                |
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `GitViz: Toggle Inline Blame` | Show/hide inline blame annotations |
-| `GitViz: Toggle Line Heatmap` | Show/hide the line heatmap |
-| `GitViz: Open Commit Graph` | Open the Commit Graph panel |
-| `GitViz: Start Interactive Rebase` | Begin an interactive rebase |
-| `GitViz: Revert Commit` | Revert a commit |
-| `GitViz: Diff with Previous Commit` | Diff the selected commit against its parent |
-| `GitViz: Focus on <View> View` | Focus the specified sidebar view (File History, Line History, Hot Files, Commits, Compare, Stashes, Branches, Worktrees) |
+| Command                             | Description                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `GitViz: Toggle Inline Blame`       | Show/hide inline blame annotations                                                                                       |
+| `GitViz: Toggle Line Heatmap`       | Show/hide the line heatmap                                                                                               |
+| `GitViz: Open Commit Graph`         | Open the Commit Graph panel                                                                                              |
+| `GitViz: Start Interactive Rebase`  | Begin an interactive rebase                                                                                              |
+| `GitViz: Revert Commit`             | Revert a commit                                                                                                          |
+| `GitViz: Diff with Previous Commit` | Diff the selected commit against its parent                                                                              |
+| `GitViz: Focus on <View> View`      | Focus the specified sidebar view (File History, Line History, Hot Files, Commits, Compare, Stashes, Branches, Worktrees) |
 
 ## Building from Source
 

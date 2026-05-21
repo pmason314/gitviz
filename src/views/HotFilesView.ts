@@ -46,6 +46,8 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
     private userTimeframe: Timeframe = 30;
     private filter = '';
     private hideDeleted = false;
+    private myFilesOnly = false;
+    private currentUser = '';
     private cachedFiles: HotFileEntry[] = [];
 
     constructor(private readonly gitService: GitService, private readonly extensionUri: vscode.Uri) {}
@@ -56,11 +58,17 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
         webviewView.webview.html = fs.readFileSync(path.join(this.extensionUri.fsPath, 'resources', 'hotFilesView.html'), 'utf8');
         webviewView.description = TIMEFRAME_LABELS['30'];
 
+        this.gitService.getCurrentUser().then(u => { this.currentUser = u?.email ?? u?.name ?? ''; });
+
         webviewView.webview.onDidReceiveMessage(async (msg: { type: string; path?: string; value?: string }) => {
             switch (msg.type) {
                 case 'filter':
                     this.filter = (msg.value ?? '').trim();
                     this._sendFiltered();
+                    break;
+                case 'toggleMyFiles':
+                    this.myFilesOnly = !this.myFilesOnly;
+                    this._loadAndSend();
                     break;
                 case 'openFile': {
                     if (!msg.path) { break; }
@@ -91,7 +99,7 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
             ? new Date(Date.now() - this.userTimeframe * 24 * 60 * 60 * 1000)
             : null;
         try {
-            this.cachedFiles = await this.gitService.getHotFiles(since);
+            this.cachedFiles = await this.gitService.getHotFiles(since, this.myFilesOnly ? this.currentUser : undefined);
         } catch {
             this.cachedFiles = [];
         }
@@ -115,7 +123,7 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
         // so the color is stable regardless of what the user types in the filter.
         const annotated = this.cachedFiles.map((f, i) => {
             const ratio = total > 1 ? i / (total - 1) : 0;
-            const heat = ratio < 0.25 ? 'heat-high' : ratio < 0.6 ? 'heat-medium' : '';
+            const heat = ratio < 0.25 ? 'heat-high' : ratio < 0.6 ? 'heat-medium' : 'heat-cold';
             return { ...f, heat };
         });
 
@@ -129,13 +137,19 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
 
         let emptyMessage: string | undefined;
         if (files.length === 0) {
-            emptyMessage = this.filter
-                ? `No files matching "${this.filter}"`
-                : this.userTimeframe
+            if (this.filter) {
+                emptyMessage = `No files matching "${this.filter}"`;
+            } else if (this.myFilesOnly) {
+                emptyMessage = this.userTimeframe
+                    ? `No commits by you in the last ${this.userTimeframe} days`
+                    : 'No commits by you found';
+            } else {
+                emptyMessage = this.userTimeframe
                     ? `No commits found in the last ${this.userTimeframe} days`
                     : 'No commits found';
+            }
         }
-        this._view?.webview.postMessage({ type: 'update', files, emptyMessage });
+        this._view?.webview.postMessage({ type: 'update', files, emptyMessage, myFilesOnly: this.myFilesOnly });
     }
 
     /** Re-fetch hot files (e.g. after a pull brings in new commits). */
