@@ -47,7 +47,6 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
     private filter = '';
     private hideDeleted = false;
     private myFilesOnly = false;
-    private currentUser = '';
     private cachedFiles: HotFileEntry[] = [];
 
     constructor(private readonly gitService: GitService, private readonly extensionUri: vscode.Uri) {}
@@ -57,8 +56,6 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
         webviewView.webview.options = { enableScripts: true };
         webviewView.webview.html = fs.readFileSync(path.join(this.extensionUri.fsPath, 'resources', 'hotFilesView.html'), 'utf8');
         webviewView.description = TIMEFRAME_LABELS['30'];
-
-        this.gitService.getCurrentUser().then(u => { this.currentUser = u?.email ?? u?.name ?? ''; });
 
         webviewView.webview.onDidReceiveMessage(async (msg: { type: string; path?: string; value?: string }) => {
             switch (msg.type) {
@@ -98,8 +95,11 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
         const since = this.userTimeframe
             ? new Date(Date.now() - this.userTimeframe * 24 * 60 * 60 * 1000)
             : null;
+        const authorPattern = this.myFilesOnly
+            ? (await this.gitService.getCurrentUserAuthorPattern()) || undefined
+            : undefined;
         try {
-            this.cachedFiles = await this.gitService.getHotFiles(since, this.myFilesOnly ? this.currentUser : undefined);
+            this.cachedFiles = await this.gitService.getHotFiles(since, authorPattern);
         } catch {
             this.cachedFiles = [];
         }

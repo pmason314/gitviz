@@ -183,6 +183,7 @@ export class GitService {
      * Result is cached for the lifetime of the instance (git config rarely changes).
      */
     private currentUserPromise: Promise<{ name: string; email: string } | null> | undefined;
+    private currentUserPatternPromise: Promise<string> | undefined;
     getCurrentUser(): Promise<{ name: string; email: string } | null> {
         if (!this.currentUserPromise) {
             this.currentUserPromise = (async () => {
@@ -393,9 +394,56 @@ export class GitService {
         return items;
     }
 
-    /** Return all contributors sorted by commit count descending. */
+    /** Return all contributors sorted by commit count descending. Entries with the same name are merged. */
     async getContributors(): Promise<ContributorInfo[]> {
         return this.run(() => this.fetchContributors());
+    }
+
+    /**
+     * Returns an `--author` regex pattern that matches all known email addresses
+     * for the current git user (identified by name). Handles the case where the
+     * same person has committed with different email addresses.
+     * Falls back to the configured email or name if no contributors can be found.
+     */
+    getCurrentUserAuthorPattern(): Promise<string> {
+        if (!this.currentUserPatternPromise) {
+            this.currentUserPatternPromise = this.buildCurrentUserAuthorPattern();
+        }
+        return this.currentUserPatternPromise;
+    }
+
+    private async buildCurrentUserAuthorPattern(): Promise<string> {
+        const user = await this.getCurrentUser();
+        if (!user) { return ''; }
+
+        let output: string;
+        try {
+            output = await this.git.raw(['shortlog', '-sne', '--all']);
+        } catch {
+            return user.email || user.name;
+        }
+
+        const userNameLower = user.name.toLowerCase();
+        const emails = new Set<string>();
+
+        for (const line of output.trim().split('\n')) {
+            const tab = line.indexOf('\t');
+            if (tab === -1) { continue; }
+            const rest = line.slice(tab + 1).trim();
+            const m = rest.match(/^(.*?)\s*<([^>]*)>/);
+            if (!m) { continue; }
+            const name = m[1].trim().toLowerCase();
+            const email = m[2].trim();
+            if (name === userNameLower || email === user.email) {
+                emails.add(email);
+            }
+        }
+
+        if (emails.size === 0) { return user.email || user.name; }
+
+        // Build a regex alternation so git matches any of the aliases
+        const escaped = [...emails].map(e => e.replace(/[.+*?()|\[\]{}^$\\]/g, '\\$&'));
+        return escaped.join('|');
     }
 
     /**
@@ -835,18 +883,27 @@ export class GitService {
             return [];
         }
         if (!output.trim()) { return []; }
-        return output.trim().split('\n')
-            .map((line) => {
-                const tab = line.indexOf('\t');
-                if (tab === -1) { return null; }
-                const count = parseInt(line.slice(0, tab).trim(), 10);
-                const rest = line.slice(tab + 1).trim();
-                const emailMatch = rest.match(/^(.*?)\s*<([^>]*)>/);
-                const name = emailMatch ? emailMatch[1].trim() : rest;
-                const email = emailMatch ? emailMatch[2].trim() : '';
-                return { name, email, commitCount: isNaN(count) ? 0 : count };
-            })
-            .filter((c): c is ContributorInfo => c !== null);
+
+        // Merge entries that share the same name (case-insensitive) so that a
+        // person who commits with multiple email addresses appears only once.
+        const merged = new Map<string, ContributorInfo>();
+        for (const line of output.trim().split('\n')) {
+            const tab = line.indexOf('\t');
+            if (tab === -1) { continue; }
+            const count = parseInt(line.slice(0, tab).trim(), 10);
+            const rest = line.slice(tab + 1).trim();
+            const emailMatch = rest.match(/^(.*?)\s*<([^>]*)>/);
+            const name = emailMatch ? emailMatch[1].trim() : rest;
+            const email = emailMatch ? emailMatch[2].trim() : '';
+            const key = name.toLowerCase();
+            const existing = merged.get(key);
+            if (existing) {
+                existing.commitCount += isNaN(count) ? 0 : count;
+            } else {
+                merged.set(key, { name, email, commitCount: isNaN(count) ? 0 : count });
+            }
+        }
+        return [...merged.values()];
     }
 
     private async fetchCommitsOnBranch(author?: string, limit = 100): Promise<CommitEntry[]> {
