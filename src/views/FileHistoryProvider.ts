@@ -63,9 +63,9 @@ export class FileHistoryProvider implements vscode.TreeDataProvider<HistoryNode>
         item.contextValue = 'historyEntry';
         item.iconPath = new vscode.ThemeIcon('git-commit');
         item.command = {
-            command: 'gitviz.fileHistory.openCommitDetails',
-            title: 'Show Commit Details',
-            arguments: [entry.sha],
+            command: 'gitviz.fileHistory.diffWithPrevious',
+            title: 'Diff with Previous Commit',
+            arguments: [entry],
         };
         return item;
     }

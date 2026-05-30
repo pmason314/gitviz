@@ -350,14 +350,9 @@
           "group": "1_open@1"
         },
         {
-          "command": "gitviz.fileHistory.diffWithPrevious",
-          "when": "viewItem == historyEntry && view == gitviz.fileHistory",
-          "group": "1_open@2"
-        },
-        {
           "command": "gitviz.fileHistory.openCommitDetails",
           "when": "viewItem == historyEntry && (view == gitviz.fileHistory || view == gitviz.lineHistory)",
-          "group": "1_open@3"
+          "group": "1_open@2"
         },
         {
           "command": "gitviz.copySha",
