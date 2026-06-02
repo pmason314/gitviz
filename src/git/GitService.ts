@@ -439,11 +439,18 @@ export class GitService {
             }
         }
 
-        if (emails.size === 0) { return user.email || user.name; }
+        if (emails.size === 0) {
+            const fallback = user.email || user.name;
+            console.log('[GitService] buildCurrentUserAuthorPattern: no emails found, using fallback:', fallback);
+            return fallback;
+        }
 
         // Build a regex alternation so git matches any of the aliases
-        const escaped = [...emails].map(e => e.replace(/[.+*?()|\[\]{}^$\\]/g, '\\$&'));
-        return escaped.join('|');
+        // git log --author uses basic regex by default, so we need \| for alternation
+        const escaped = [...emails].map(e => e.replace(/[.+*?()[\]{}^$\\]/g, '\\$&'));
+        const pattern = escaped.join('\\|');
+        console.log('[GitService] buildCurrentUserAuthorPattern: pattern =', pattern);
+        return pattern;
     }
 
     /**
@@ -1067,8 +1074,7 @@ export class GitService {
             args.push(`--after=${since.toISOString()}`);
         }
         if (author) {
-            const escaped = author.replace(/[.+*?()\[\]{}|^$\\]/g, '\\$&');
-            args.push(`--author=${escaped}`);
+            args.push(`--author=${author}`);
         }
         const output = await this.git.raw(args);
         if (!output.trim()) { return []; }
