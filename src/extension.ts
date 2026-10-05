@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { initLogger } from './utils/logger';
@@ -308,6 +309,48 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
                 await commitDetailsPanel.show(sha).catch((err: Error) => {
                     vscode.window.showErrorMessage(`GitViz: ${err.message}`);
                 });
+            }
+        }),
+
+        // ---------------------------------------------------------------------
+        // File-at-revision (issue #3) — view / copy / restore a file as it
+        // existed at a given commit.
+        // ---------------------------------------------------------------------
+        vscode.commands.registerCommand('gitviz.showFileAtRevision', async (raw?: RevisionFileArg | string) => {
+            const resolved = resolveRevisionFileArg(gitService, raw);
+            if (!resolved) { return; }
+            const uri = makeRevisionUri(gitService.getRepoRoot(), resolved.sha, resolved.absPath);
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { preview: true });
+        }),
+
+        vscode.commands.registerCommand('gitviz.copyFileAtRevision', async (raw?: RevisionFileArg | string) => {
+            const resolved = resolveRevisionFileArg(gitService, raw);
+            if (!resolved) { return; }
+            try {
+                const content = await gitService.getFileAtRevision(resolved.relPath, resolved.sha);
+                await vscode.env.clipboard.writeText(content);
+                vscode.window.showInformationMessage(`GitViz: Copied ${resolved.relPath} @ ${resolved.sha.slice(0, 7)} to clipboard.`);
+            } catch (err) {
+                vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
+            }
+        }),
+
+        vscode.commands.registerCommand('gitviz.restoreFileAtRevision', async (raw?: RevisionFileArg | string) => {
+            const resolved = resolveRevisionFileArg(gitService, raw);
+            if (!resolved) { return; }
+            if (resolved.absPathExists) {
+                const confirmed = await vscode.window.showWarningMessage(
+                    `Restore ${resolved.relPath} from ${resolved.sha.slice(0, 7)}? Your current local changes to this file will be overwritten.`,
+                    { modal: true }, 'Restore'
+                );
+                if (confirmed !== 'Restore') { return; }
+            }
+            try {
+                await gitService.checkoutFileFrom(resolved.sha, resolved.relPath);
+                vscode.window.showInformationMessage(`GitViz: Restored ${resolved.relPath} from ${resolved.sha.slice(0, 7)}.`);
+            } catch (err) {
+                vscode.window.showErrorMessage(`GitViz: ${(err as Error).message}`);
             }
         }),
 
@@ -785,9 +828,40 @@ export function deactivate(): void {
     GitService.resetInstance();
 }
 
+/** File-at-revision command argument shape (as sent by the CommitDetailsPanel webview). */
+type RevisionFileArg = { sha: string; path: string };
+
 // -------------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------------
+
+/**
+ * Normalize the file-at-revision argument shape into repo-relative + absolute
+ * paths. Accepts either `{ sha, path }` (as sent by the webview) or a bare
+ * string path. `path` may be repo-relative (webview) or absolute.
+ */
+function resolveRevisionFileArg(
+    gitService: GitService,
+    raw?: { sha: string; path: string } | string
+): { sha: string; relPath: string; absPath: string; absPathExists: boolean } | null {
+    if (!raw) {
+        vscode.window.showWarningMessage('GitViz: No file specified.');
+        return null;
+    }
+    const sha = typeof raw === 'string' ? undefined : raw.sha;
+    const filePath = typeof raw === 'string' ? raw : raw.path;
+    if (!sha || !filePath) { return null; }
+    const repoRoot = gitService.getRepoRoot();
+    const relPath = path.isAbsolute(filePath) || filePath.startsWith('/')
+        ? path.relative(repoRoot, filePath).replace(/\\/g, '/')
+        : filePath.replace(/\\/g, '/');
+    const absPath = path.join(repoRoot, relPath);
+    let absPathExists = false;
+    try {
+        absPathExists = fs.existsSync(absPath);
+    } catch { /* ignore */ }
+    return { sha, relPath, absPath, absPathExists };
+}
 
 /** Placeholder provider shown in all tree views when no git repository is detected. */
 class NoRepoProvider implements vscode.TreeDataProvider<vscode.TreeItem> {

@@ -442,6 +442,18 @@
         "title": "GitViz: Toggle Inline Blame"
       },
       {
+        "command": "gitviz.showFileAtRevision",
+        "title": "GitViz: Show File at Revision…"
+      },
+      {
+        "command": "gitviz.copyFileAtRevision",
+        "title": "GitViz: Copy File Contents at Revision…"
+      },
+      {
+        "command": "gitviz.restoreFileAtRevision",
+        "title": "GitViz: Restore File from Revision…"
+      },
+      {
         "command": "gitviz.toggleHeatmap",
         "title": "GitViz: Toggle Line Heatmap"
       },
