@@ -17,6 +17,7 @@ export class Config {
     blameFormat(): string { return this.get('blame.format', '{author}, {date} · {message|60}'); }
     blameDate(): DateFormat { return this.get('blame.dateFormat', 'relative'); }
     blameHighlightLine(): boolean { return this.get('blame.highlightLine', false); }
+    blameShowUncommitted(): boolean { return this.get('blame.showUncommitted', false); }
     blameMaxLines(): number { return this.get('blame.maxLines', 10000); }
     blameMaxFileSizeKb(): number { return this.get('blame.maxFileSizeKb', 1024); }
 

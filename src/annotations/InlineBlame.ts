@@ -145,13 +145,34 @@ export class InlineBlame implements vscode.Disposable {
             return;
         }
 
+        const showUncommitted = this.config.blameShowUncommitted();
+        if (!showUncommitted) {
+            // Previously every line of a never-committed file was annotated
+            // with 'Not yet committed'. With the new default a fully
+            // uncommitted file gets no annotation at all, and only the
+            // committed lines of a partially-new file are shown.
+            const hasCommittedLine = [...blameMap.values()].some(
+                (info) => info.sha !== UNCOMMITTED_SHA
+            );
+            if (!hasCommittedLine) {
+                this.clearEditor(editor);
+                return;
+            }
+        }
+
         const decorations: vscode.DecorationOptions[] = [];
         for (const line of lines) {
             const lineNumber = line + 1; // git blame is 1-indexed
             const info = blameMap.get(lineNumber);
             if (!info) { continue; }
 
-            const text = info.sha === UNCOMMITTED_SHA
+            const isUncommitted = info.sha === UNCOMMITTED_SHA;
+            if (isUncommitted && !showUncommitted) {
+                // Only annotate the committed lines by default.
+                continue;
+            }
+
+            const text = isUncommitted
                 ? 'Not yet committed'
                 : `   ${formatBlameString(info, this.config.blameFormat(), this.config.blameDate())}`;
 
