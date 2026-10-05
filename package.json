@@ -699,6 +699,11 @@
           "default": false,
           "description": "Highlight the current line's age in the gutter."
         },
+        "gitviz.blame.showUncommitted": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also annotate lines that have not been committed yet (shown as 'Not yet committed'). When false (default), only committed lines are annotated and fully-uncommitted files show no annotation at all."
+        },
         "gitviz.blame.maxLines": {
           "type": "number",
           "default": 10000,
