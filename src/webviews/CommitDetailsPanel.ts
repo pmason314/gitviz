@@ -72,6 +72,12 @@ export class CommitDetailsPanel implements vscode.Disposable {
             await vscode.commands.executeCommand('gitviz.revealCommit', msg.sha);
         } else if (msg.command === 'copySha' && msg.sha) {
             await vscode.env.clipboard.writeText(msg.sha);
+        } else if (msg.command === 'openAtRevision' && msg.path && msg.sha) {
+            await vscode.commands.executeCommand('gitviz.showFileAtRevision', { sha: msg.sha, path: msg.path });
+        } else if (msg.command === 'copyAtRevision' && msg.path && msg.sha) {
+            await vscode.commands.executeCommand('gitviz.copyFileAtRevision', { sha: msg.sha, path: msg.path });
+        } else if (msg.command === 'restoreAtRevision' && msg.path && msg.sha) {
+            await vscode.commands.executeCommand('gitviz.restoreFileAtRevision', { sha: msg.sha, path: msg.path });
         }
     }
 
@@ -105,6 +111,11 @@ function buildHtml(commit: CommitInfo, files: CommitFileEntry[], highlightRelPat
   ${badge}<span class="file-name">${escHtml(f.path)}</span>
   <span class="stats">
     <span style="color:${insColor}">${ins}</span>${del ? ` <span style="color:${delColor}">${del}</span>` : ''}
+  </span>
+  <span class="file-actions" onclick="event.stopPropagation()">
+    <button class="copy-btn" data-vtip="Open at this revision" onclick="openAtRevision(this.closest('.file').dataset.path)"><svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M17.75 8.547L12.7 3.5a.87.87 0 0 0-1.23 0l-.72.72a.87.87 0 0 1-1.23 0 .87.87 0 0 1 0-1.23l.72-.72A2.6 2.6 0 0 1 13.8 1.5l5.05 5.05a2.6 2.6 0 0 1 0 3.68l-5.05 5.05" transform="translate(-1,-1) scale(0.95)"/></svg></button>
+    <button class="copy-btn" data-vtip="Copy file contents at this revision" onclick="copyAtRevision(this.closest('.file').dataset.path)"><svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M4 4v-3h9v11h-3v1h-9v-11h3zm1 0h5v9h2v-9h-7v0zm-1 1h-2v9h7v-9h-5z"/></svg></button>
+    <button class="copy-btn" data-vtip="Restore file from this revision into the working tree" onclick="restoreAtRevision(this.closest('.file').dataset.path)"><svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M8 3V1L4.5 4.5 8 8V5.5A4.5 4.5 0 1 1 3.5 10H2a6 6 0 1 0 6-7z" transform="scale(1.05)"/></svg></button>
   </span>
 </div>`;
     }).join('\n');
@@ -151,6 +162,8 @@ function buildHtml(commit: CommitInfo, files: CommitFileEntry[], highlightRelPat
     .file--active { background: var(--vscode-editor-lineHighlightBackground, rgba(255,255,255,0.06)); border-left: 2px solid var(--vscode-focusBorder); padding-left: 4px; }
     .file--active:hover { background: var(--vscode-list-hoverBackground); }
     .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-actions { display: inline-flex; gap: 2px; opacity: 0; transition: opacity 0.1s; }
+    .file:hover .file-actions, .file:focus-within .file-actions { opacity: 1; }
     .stats { white-space: nowrap; font-size: 0.9em; }
     .status-badge { display: inline-block; width: 14px; text-align: center; font-weight: 700; font-size: 0.8em; flex-shrink: 0; }
     .status-A { color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950); }
@@ -186,6 +199,15 @@ function buildHtml(commit: CommitInfo, files: CommitFileEntry[], highlightRelPat
     }
     function copySha() {
       vscode.postMessage({ command: 'copySha', sha: commitSha });
+    }
+    function openAtRevision(filePath) {
+      vscode.postMessage({ command: 'openAtRevision', path: filePath, sha: commitSha });
+    }
+    function copyAtRevision(filePath) {
+      vscode.postMessage({ command: 'copyAtRevision', path: filePath, sha: commitSha });
+    }
+    function restoreAtRevision(filePath) {
+      vscode.postMessage({ command: 'restoreAtRevision', path: filePath, sha: commitSha });
     }
     (function() {
       var vtip = document.getElementById('vtip');

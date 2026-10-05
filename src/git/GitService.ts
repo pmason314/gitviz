@@ -258,6 +258,16 @@ export class GitService {
         return this.run(() => this.git.show([`${sha}:${relativePath}`]));
     }
 
+    /**
+     * Write the file's blob at the given revision into the working tree (and index).
+     * Backed by `git checkout <sha> -- <path>`.
+     * @param sha Any git revision: SHA, HEAD~1, branch name, etc.
+     * @param relativePath Path relative to the repo root.
+     */
+    async checkoutFileFrom(sha: string, relativePath: string): Promise<void> {
+        await this.run(() => this.git.raw(['checkout', sha, '--', relativePath]));
+    }
+
     /** Return the files changed in a commit with insertion/deletion line counts. */
     async getCommitFiles(sha: string): Promise<CommitFileEntry[]> {
         return this.run(() => this.fetchCommitFiles(sha));
