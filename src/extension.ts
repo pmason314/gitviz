@@ -96,7 +96,7 @@ async function initExtension(context: vscode.ExtensionContext, repoRoot: string)
     const hoverProvider = new BlameHoverProvider(gitService, config);
     const fileHistoryProvider = new FileHistoryProvider(gitService, config);
     const lineHistoryProvider = new LineHistoryProvider(gitService, config);
-    const hotFilesView = new HotFilesView(gitService, context.extensionUri);
+    const hotFilesView = new HotFilesView(gitService, config, context.extensionUri);
     const commitsView = new CommitsView(gitService, context.extensionUri);
     const branchesProvider = new BranchesProvider(gitService);
     const stashesProvider = new StashesProvider(gitService);

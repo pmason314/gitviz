@@ -26,6 +26,9 @@ export class Config {
     heatmapCold(): string { return this.get('heatmap.coldColor', '#0066ff'); }
     heatmapThresholdDays(): number { return this.get('heatmap.ageThresholdDays', 365); }
 
+    // Hot files
+    hotFilesRespectGitignore(): boolean { return this.get('hotFiles.respectGitignore', true); }
+
     // History views
     historyMaxCommits(): number { return this.get('history.maxCommits', 500); }
 

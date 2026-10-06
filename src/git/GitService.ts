@@ -277,12 +277,31 @@ export class GitService {
         ]);
     }
 
-    /**
-     * Return files sorted by commit frequency since the given date (or all time).
+    /** Return files sorted by commit frequency since the given date (or all time).
      * Capped at 50 entries.
      */
     async getHotFiles(since: Date | null, author?: string): Promise<HotFileEntry[]> {
         return this.run(() => this.fetchHotFiles(since, author));
+    }
+
+    /**
+     * Return the subset of `paths` (repo-relative) that the repository's
+     * effective ignore rules match, in one `git check-ignore --no-index` call.
+     *
+     * --no-index makes the result independent of tracking status: files that
+     * are committed but added by force (e.g. a tracked package-lock.json) are
+     * still reported. An empty set is returned when git finds no matches
+     * (exit 1) or when the command fails (not a repo, etc.).
+     */
+    async getIgnoredPaths(paths: string[]): Promise<Set<string>> {
+        if (paths.length === 0) { return new Set(); }
+        try {
+            const output = await this.run(() => this.git.raw(['check-ignore', '--no-index', ...paths]));
+            if (!output.trim()) { return new Set(); }
+            return new Set(output.trim().split('\n').map(l => l.trim()).filter(Boolean));
+        } catch {
+            return new Set();
+        }
     }
 
     // =========================================================================

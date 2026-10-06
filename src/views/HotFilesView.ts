@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { Config } from '../config/Config';
 import { GitService } from '../git/GitService';
 import { HotFileEntry } from '../git/types';
 
@@ -48,8 +49,13 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
     private hideDeleted = false;
     private myFilesOnly = false;
     private cachedFiles: HotFileEntry[] = [];
+    private configDisposable: vscode.Disposable | undefined;
 
-    constructor(private readonly gitService: GitService, private readonly extensionUri: vscode.Uri) {}
+    constructor(
+        private readonly gitService: GitService,
+        private readonly config: Config,
+        private readonly extensionUri: vscode.Uri,
+    ) {}
 
     resolveWebviewView(webviewView: vscode.WebviewView): void {
         this._view = webviewView;
@@ -88,6 +94,10 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
             if (webviewView.visible) { this._loadAndSend(); }
         });
 
+        // Re-filter when gitviz.* settings change so toggling
+        // hotFiles.respectGitignore takes effect without reopening the view.
+        this.configDisposable = this.config.onDidChange(() => { this.refresh(); });
+
         this._loadAndSend();
     }
 
@@ -102,6 +112,10 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
             this.cachedFiles = await this.gitService.getHotFiles(since, authorPattern);
         } catch {
             this.cachedFiles = [];
+        }
+        // Exclude entries matching the repository's ignore rules when enabled.
+        if (this.config.hotFilesRespectGitignore()) {
+            this.cachedFiles = await this._filterIgnored(this.cachedFiles);
         }
         // Annotate each file with whether it currently exists on disk
         const root = this.gitService.getRepoRoot();
@@ -152,6 +166,15 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
         this._view?.webview.postMessage({ type: 'update', files, emptyMessage, myFilesOnly: this.myFilesOnly });
     }
 
+    /** Drop entries whose path matches the repository's effective ignore rules. */
+    private async _filterIgnored(files: HotFileEntry[]): Promise<HotFileEntry[]> {
+        if (files.length === 0) { return files; }
+        const norm = (p: string) => p.replace(/\\/g, '/');
+        const ignored = await this.gitService.getIgnoredPaths(files.map(f => norm(f.path)));
+        if (ignored.size === 0) { return files; }
+        return files.filter(f => !ignored.has(norm(f.path)));
+    }
+
     /** Re-fetch hot files (e.g. after a pull brings in new commits). */
     refresh(): void {
         this._loadAndSend();
@@ -172,6 +195,7 @@ export class HotFilesView implements vscode.WebviewViewProvider, vscode.Disposab
 
     dispose(): void {
         this._onActiveTimeframeChanged.dispose();
+        this.configDisposable?.dispose();
     }
 
 }
