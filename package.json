@@ -729,6 +729,11 @@
           "default": 365,
           "description": "Number of days before a line reaches the coldest heatmap color."
         },
+        "gitviz.hotFiles.respectGitignore": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude files matching the repository's .gitignore rules (lock files, generated artifacts, vendored dependencies) from the Hot Files list."
+        },
         "gitviz.history.maxCommits": {
           "type": "number",
           "default": 500,
